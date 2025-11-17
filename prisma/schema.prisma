@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoCredito {
+  activo
+  cancelado
+  vencido
+}
+
+enum EstadoCuota {
+  pendiente
+  pagada
+  vencida
+  parcial
+}
+
+enum TipoPersona {
+  fisica
+  juridica
+}
+
+enum EstadoLiquidacion {
+  generada
+  revisada
+  cerrada
+}
+
+enum VencimientoRegla {
+  AJUSTAR_ULTIMO_DIA
+  ESTRICTO
+}
+
+model Mutual {
+  id_mutual             Int                   @id @default(autoincrement())
+  nombre                String                @db.VarChar(50)
+  cuit                  String?               @db.VarChar(20)
+  estado                Boolean               @default(true)
+  asociados             Asociado[]
+  pagos                 Pago[]
+  productos             Producto[]
+  tiposAsociado         TipoAsociado[]
+  usuario               Usuario[]
+  configuracionesCierre ConfiguracionCierre[]
+  cancelaciones         Cancelacion[]
+  informes3688          Informe3688[]
+
+  @@map("mutuales")
+}
+
+model Usuario {
+  id_usuario Int     @id @default(autoincrement())
+  nombre     String  @db.VarChar(50)
+  apellido   String? @db.VarChar(50)
+  email      String  @unique
+  clerkId    String  @unique
+  id_mutual  Int?
+  mutual     Mutual? @relation(fields: [id_mutual], references: [id_mutual])
+
+  @@map("usuarios")
+}
+
+model Asociado {
+  id_asociado           Int           @id @default(autoincrement())
+  id_mutual             Int
+  nombre                String?       @db.VarChar(50)
+  apellido              String?       @db.VarChar(50)
+  cuit                  String?       @db.VarChar(20)
+  sueldo_mes            Float?
+  sueldo_ano            Float?
+  fecha_nac             DateTime?
+  telefono              String        @db.VarChar(20)
+  email                 String?       @db.VarChar(50)
+  profesion             String?       @db.VarChar(50)
+  dec_jurada            Boolean
+  calle                 String        @db.VarChar(100)
+  codigo_postal         String        @db.VarChar(10)
+  departamento          String?       @db.VarChar(10)
+  es_extranjero         Boolean       @default(false)
+  genero                String?       @db.VarChar(20)
+  id_tipo               Int?
+  localidad             String        @db.VarChar(50)
+  numero_calle          Int?
+  piso                  String?       @db.VarChar(10)
+  provincia             String        @db.VarChar(50)
+  razon_social          String?       @db.VarChar(100)
+  recibe_notificaciones Boolean       @default(true)
+  tipo_persona          TipoPersona   @default(fisica)
+  mutual                Mutual        @relation(fields: [id_mutual], references: [id_mutual])
+  tipoAsociado          TipoAsociado? @relation(fields: [id_tipo], references: [id_tipo])
+  creditos              Credito[]
+
+  @@index([id_mutual])
+  @@map("asociados")
+}
+
+model TipoAsociado {
+  id_tipo   Int        @id @default(autoincrement())
+  id_mutual Int
+  nombre    String     @db.VarChar(50)
+  asociados Asociado[]
+  mutual    Mutual     @relation(fields: [id_mutual], references: [id_mutual])
+
+  @@index([id_mutual])
+  @@map("tipos_asociados")
+}
+
+model Producto {
+  id_producto       Int              @id @default(autoincrement())
+  id_mutual         Int
+  nombre            String           @db.VarChar(100)
+  numero_cuotas     Int
+  tasa_interes      Float
+  fecha_creacion    DateTime         @default(now())
+  dia_vencimiento   Int              @db.SmallInt
+  regla_vencimiento VencimientoRegla @default(AJUSTAR_ULTIMO_DIA)
+  comision_comerc   Float            @default(0)
+  comision_gestion  Float?           @default(0)
+  creditos          Credito[]
+  mutual            Mutual           @relation(fields: [id_mutual], references: [id_mutual])
+  activo            Boolean          @default(true)
+  fecha_baja        DateTime?
+
+  @@index([id_mutual])
+  @@map("productos")
+}
+
+model Credito {
+  id_credito            Int           @id @default(autoincrement())
+  id_asociado           Int
+  id_producto           Int
+  fecha_creacion        DateTime      @default(now())
+  fecha_modificacion    DateTime      @default(now()) @updatedAt
+  monto                 Float
+  saldo_capital_inicial Float
+  saldo_capital_actual  Float
+  cuotas_pagadas        Int           @default(0)
+  cuotas_pendientes     Int
+  estado                EstadoCredito @default(activo)
+
+  moneda                        String  @default("ARS") @db.VarChar(10)
+  tipo_operacion                String  @default("credito") @db.VarChar(50)
+  fuente_financiamiento_externa String  @default("fondo-propio")
+  usuario_creacion              String  @db.VarChar(100)
+  usuario_modificacion          String? @db.VarChar(100)
+  observaciones                 String? @db.Text
+
+  asociado Asociado @relation(fields: [id_asociado], references: [id_asociado])
+  producto Producto @relation(fields: [id_producto], references: [id_producto])
+  cuotas   Cuota[]
+
+  tasa_interes      Float
+  numero_cuotas     Int
+  dia_vencimiento   Int
+  regla_vencimiento VencimientoRegla
+  primera_venc      DateTime
+
+  @@index([id_asociado])
+  @@index([id_producto])
+  @@map("creditos")
+}
+
+model Informe3688 {
+  id_informe       Int      @id @default(autoincrement())
+  id_mutual        Int
+  periodo          String // "YYYY-MM"
+  fecha_generacion DateTime @default(now())
+  total_registros  Int
+  total_monto      Float
+  mutual           Mutual   @relation(fields: [id_mutual], references: [id_mutual])
+}
+
+model Cuota {
+  id_cuota           Int                  @id @default(autoincrement())
+  id_credito         Int
+  numero_cuota       Int
+  estado             EstadoCuota          @default(pendiente)
+  fecha_vencimiento  DateTime
+  monto_capital      Float
+  monto_interes      Float
+  monto_total        Float
+  interes_punitorio  Float?
+  credito            Credito              @relation(fields: [id_credito], references: [id_credito])
+  pagoCuotas         PagoCuota[]
+  liquidacionDetalle LiquidacionDetalle[]
+
+  @@unique([id_credito, numero_cuota])
+  @@map("cuotas")
+}
+
+model Pago {
+  id_pago       Int         @id @default(autoincrement())
+  id_mutual     Int
+  monto_pago    Float       @default(0)
+  fecha_pago    DateTime
+  referencia    String?     @unique
+  observaciones String?     @db.VarChar(200)
+  pagoCuotas    PagoCuota[]
+  mutual        Mutual      @relation(fields: [id_mutual], references: [id_mutual])
+
+  @@index([id_mutual])
+  @@map("pagos")
+}
+
+model PagoCuota {
+  id_pago_cuota Int      @id @default(autoincrement())
+  id_pago       Int
+  id_cuota      Int
+  monto_pagado  Float
+  fecha_pago    DateTime
+  cuota         Cuota    @relation(fields: [id_cuota], references: [id_cuota])
+  pago          Pago     @relation(fields: [id_pago], references: [id_pago])
+
+  @@index([id_pago])
+  @@index([id_cuota])
+  @@map("pago_cuotas")
+}
+
+model ConfiguracionCierre {
+  id_configuracion   Int       @id @default(autoincrement())
+  id_mutual          Int
+  dia_cierre         Int // 1..31
+  ultima_liquidacion DateTime?
+  activo             Boolean   @default(true)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  mutual        Mutual?       @relation(fields: [id_mutual], references: [id_mutual])
+  liquidaciones Liquidacion[]
+
+  @@index([id_mutual])
+  @@map("configuraciones_cierre")
+}
+
+model Liquidacion {
+  id_liquidacion   Int               @id @default(autoincrement())
+  id_mutual        Int
+  id_configuracion Int
+  periodo          String // "YYYY-M" (ej: "2025-10")
+  fecha_cierre     DateTime
+  total_monto      Float
+  estado           EstadoLiquidacion @default(generada)
+  fecha_creacion   DateTime          @default(now())
+
+  configuracion ConfiguracionCierre  @relation(fields: [id_configuracion], references: [id_configuracion])
+  detalle       LiquidacionDetalle[]
+
+  @@unique([id_configuracion, periodo]) // una liquidación por config/mes
+  @@index([id_mutual, periodo])
+  @@map("liquidaciones")
+}
+
+model LiquidacionDetalle {
+  id_detalle      Int   @id @default(autoincrement())
+  id_liquidacion  Int
+  id_cuota        Int
+  monto_liquidado Float
+
+  liquidacion Liquidacion @relation(fields: [id_liquidacion], references: [id_liquidacion])
+  cuota       Cuota       @relation(fields: [id_cuota], references: [id_cuota])
+
+  @@index([id_liquidacion])
+  @@index([id_cuota])
+  @@map("liquidaciones_detalle")
+}
+
+model Cancelacion {
+  id_cancelacion Int      @id @default(autoincrement())
+  id_mutual      Int?
+  periodo        String
+  fecha_registro DateTime @default(now())
+  mutual         Mutual?  @relation(fields: [id_mutual], references: [id_mutual])
+
+  @@unique([id_mutual, periodo]) // evita duplicados dentro del mismo mutual
+}
