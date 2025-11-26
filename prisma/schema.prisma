@@ -2,10 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
+
 
 enum EstadoCredito {
   activo
@@ -90,6 +93,7 @@ model Asociado {
   provincia             String        @db.VarChar(50)
   razon_social          String?       @db.VarChar(100)
   recibe_notificaciones Boolean       @default(true)
+  saldo_disponible      Decimal       @default(0)
   tipo_persona          TipoPersona   @default(fisica)
   mutual                Mutual        @relation(fields: [id_mutual], references: [id_mutual])
   tipoAsociado          TipoAsociado? @relation(fields: [id_tipo], references: [id_tipo])

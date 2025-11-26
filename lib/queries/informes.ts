@@ -1,24 +1,71 @@
+// lib/queries/informes.ts
 import { prisma } from "@/lib/db/prisma";
 import { withRLS } from "@/lib/db/with-rls";
+import { getServerUser } from "@/lib/auth/get-server-user";
 
-export async function getInformeSaldosContables(periodo?: string) {
-  return withRLS(async (tx) => {
+// -------------------------------------------------------------
+// Tipos
+// -------------------------------------------------------------
+
+export interface InformeSaldosRow {
+  id_credito: number;
+  id_cuota: number;
+  socio: string;
+  producto: string;
+  monto_credito: number;
+  cargos: number;
+  abonos: number;
+  saldo: number;
+  interes_a_devengar: number;
+  dia_vencimiento: Date | null;
+  tasa_interes: number;
+  estado_credito: string;
+}
+
+// -------------------------------------------------------------
+// SALDOS CONTABLES
+// -------------------------------------------------------------
+
+export async function getInformeSaldosContables(
+  periodo?: string
+): Promise<InformeSaldosRow[]> {
+
+  const info = await getServerUser();
+  if (!info) throw new Error("Usuario no autenticado.");
+  if (!info.mutualId) throw new Error("Mutual no encontrada.");
+
+  const { mutualId, user } = info;
+  const clerkId = user.id;
+
+  return withRLS(mutualId, clerkId, async (tx) => {
+    // -----------------------------
+    // Rango temporal
+    // -----------------------------
     const hoy = new Date();
-    const [year, month] = periodo ? periodo.split("-").map(Number) : [hoy.getFullYear(), hoy.getMonth() + 1];
-    const fin = new Date(year, month, 0, 23, 59, 59); // corte hasta fin del mes actual
+    const [year, month] = periodo
+      ? periodo.split("-").map(Number)
+      : [hoy.getFullYear(), hoy.getMonth() + 1];
 
+    const fin = new Date(year, month, 0, 23, 59, 59);
+
+    // -----------------------------
+    // Query principal
+    // -----------------------------
     const cuotas = await tx.cuota.findMany({
       include: {
         credito: {
           include: { asociado: true, producto: true },
         },
         pagoCuotas: {
-          where: { fecha_pago: { lte: fin } }, // 🔹 pagos hasta esa fecha
+          where: { fecha_pago: { lte: fin } },
         },
       },
     });
 
-    return cuotas.map((c) => {
+    // -----------------------------
+    // Transformación a informe
+    // -----------------------------
+    return cuotas.map<InformeSaldosRow>((c) => {
       const debe = c.monto_total;
       const haber = c.pagoCuotas.reduce((acc, p) => acc + p.monto_pagado, 0);
       const saldo = debe - haber;
@@ -41,50 +88,34 @@ export async function getInformeSaldosContables(periodo?: string) {
   });
 }
 
-export interface Informe3688Row {
-  periodo: string;                // YYYY-MM
-  cuit: string;
-  nombre_razon: string;
-  tipo_persona: "fisica" | "juridica";
-  domicilio: string;              // calle nro, localidad, provincia, CP
-  tipo_operacion: string;         // ej: "credito"
-  moneda: string;                 // "ARS" (o la que tengas)
-  importe_total_mes: number;      // suma por sujeto+tipo_operacion en el mes
-  fecha_inicio: Date;             // primer día mes
-  fecha_fin: Date;                // último día mes
-  observaciones?: string;
-}
-
 export async function getInforme3688(periodo?: string, umbral = 1_600_000) {
-  return withRLS(async (tx) => {
+  const info = await getServerUser();
+  if (!info) throw new Error("Usuario no autenticado.");
+  if (!info.mutualId) throw new Error("Mutual no encontrada.");
+
+  const { mutualId, user } = info;
+  const clerkId = user.id;
+
+  return withRLS(mutualId, clerkId, async (tx) => {
     const hoy = new Date();
-    const [y, m] = periodo ? periodo.split("-").map(Number) : [hoy.getFullYear(), hoy.getMonth() + 1];
+    const [y, m] = periodo
+      ? periodo.split("-").map(Number)
+      : [hoy.getFullYear(), hoy.getMonth() + 1];
+
     const inicio = new Date(y, m - 1, 1, 0, 0, 0);
     const fin = new Date(y, m, 0, 23, 59, 59);
     const periodoStr = `${y}-${String(m).padStart(2, "0")}`;
 
-    // 🔹 Créditos creados (otorgados) dentro del mes => “colocación de fondos”
     const creditos = await tx.credito.findMany({
       where: { fecha_creacion: { gte: inicio, lte: fin } },
       include: { asociado: true },
     });
 
-    // Agrupar por sujeto + tipo_operacion + moneda
-    const map = new Map<
-      string,
-      {
-        cuit: string;
-        nombre_razon: string;
-        tipo_persona: "fisica" | "juridica";
-        domicilio: string;
-        tipo_operacion: string;
-        moneda: string;
-        total: number;
-      }
-    >();
+    const map = new Map<string, any>();
 
     for (const c of creditos) {
       const asociado = c.asociado;
+
       const cuit = asociado.cuit ?? "00000000000";
       const nombre_razon =
         asociado.tipo_persona === "juridica"
@@ -104,6 +135,7 @@ export async function getInforme3688(periodo?: string, umbral = 1_600_000) {
       const moneda = (c as any).moneda ?? "ARS";
 
       const key = `${cuit}|${tipo_operacion}|${moneda}`;
+
       const prev =
         map.get(key) ??
         {
@@ -116,13 +148,11 @@ export async function getInforme3688(periodo?: string, umbral = 1_600_000) {
           total: 0,
         };
 
-      // Criterio: suma del monto del crédito otorgado en el mes (colocación)
       prev.total += Number(c.monto || 0);
       map.set(key, prev);
     }
 
-    // ✅ Cambio de bucle para evitar error TS2802
-    const filas: Informe3688Row[] = [];
+    const filas = [];
 
     for (const v of Array.from(map.values())) {
       if (v.total >= umbral) {

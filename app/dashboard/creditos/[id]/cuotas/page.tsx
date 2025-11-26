@@ -24,7 +24,6 @@ export default async function CuotasDeCreditoPage({
       page,
     });
 
-
   if (!credito) return <p className="text-red-500">Crédito no encontrado.</p>;
 
   return (
@@ -40,9 +39,21 @@ export default async function CuotasDeCreditoPage({
           </p>
         </div>
 
-        <Link href="/dashboard/creditos">
-          <Button variant="ghost">← Volver a créditos</Button>
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+
+          {/* ← Volver a créditos */}
+          <Link href="/dashboard/creditos">
+            <Button variant="ghost">← Volver a créditos</Button>
+          </Link>
+
+          {/* 💰 Wallet del asociado */}
+          <Link href={`/dashboard/wallet/${credito.asociado?.id_asociado}`}>
+            <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+              💰 Wallet del asociado
+            </Button>
+          </Link>
+
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -51,7 +62,6 @@ export default async function CuotasDeCreditoPage({
         <Resumen label="Saldo" value={totales.saldo} />
       </div>
 
-      {/* 👇 Le pasamos la gestión */}
       <CuotasTable cuotas={cuotas} comisionGestion={comisionGestion} />
 
       <Pagination
@@ -59,7 +69,6 @@ export default async function CuotasDeCreditoPage({
         totalPages={pagination.totalPages}
         baseUrl={`/dashboard/creditos/${id_credito}/cuotas`}
       />
-
     </div>
   );
 }

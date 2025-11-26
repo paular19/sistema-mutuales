@@ -13,34 +13,35 @@ interface InformeCardProps {
 
 export function InformeCard({ informe }: InformeCardProps) {
   const handleClick = async () => {
-    if (informe.action === "download") {
-      try {
-        const res = await fetch(`/dashboard/informes/${informe.id}`, { method: "GET" });
-        if (!res.ok) throw new Error("Error descargando informe");
+  if (informe.action === "download") {
+    try {
+      const res = await fetch(`/dashboard/informes/${informe.id}`, { method: "GET" }); // 🔥 ACÁ VA EL CAMBIO
 
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
+      if (!res.ok) throw new Error("Error descargando informe");
 
-        // 🔹 Cambiamos extensión según tipo de informe
-        if (informe.id === "3688") {
-          a.download = `informe-${informe.id}.txt`;
-        } else {
-          a.download = `informe-${informe.id}.xlsx`;
-        }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
 
-        a.click();
-        window.URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error(err);
-        alert("Error al generar el archivo");
+      if (informe.id === "3688") {
+        a.download = `informe-${informe.id}.txt`;
+      } else {
+        a.download = `informe-${informe.id}.xlsx`;
       }
-    } else {
-      // 🔹 En caso de navegación (si en el futuro agregás informes con página propia)
-      window.location.href = `/informes/${informe.id}`;
+
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Error al generar el archivo");
     }
-  };
+  } else {
+    window.location.href = `/informes/${informe.id}`;
+  }
+};
+
+
 
   return (
     <Card
