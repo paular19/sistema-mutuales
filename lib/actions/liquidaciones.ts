@@ -4,6 +4,7 @@ import { withRLS } from "@/lib/db/with-rls";
 import { ConfiguracionCierreSchema } from "@/lib/validators/liquidaciones";
 import { addMonths, setDate } from "date-fns";
 import { $Enums } from "@prisma/client";
+import { getServerUser } from "../auth/get-server-user";
 
 /**
  * Devuelve el período actual en formato "YYYY-M"
@@ -19,71 +20,58 @@ function periodoFromDate(d: Date) {
  *  - Arrastra cuotas impagas de la liquidación anterior
  */
 export async function generarLiquidacionSiCorresponde() {
-  return withRLS(async (prisma) => {
-    // 🔹 Configuración de cierre activa
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
     const config = await prisma.configuracionCierre.findFirst({
       where: { activo: true },
     });
 
-    if (!config) {
-      return { generated: false, reason: "No hay configuración de cierre activa." };
-    }
+    if (!config) return { generated: false, reason: "No hay configuración activa." };
 
     const hoy = new Date();
-    const dia = hoy.getDate();
-
-    // 🔹 Solo generar en el día de cierre
-    if (dia !== config.dia_cierre) {
-      return { generated: false, reason: "Hoy no es el día de cierre configurado." };
+    if (hoy.getDate() !== config.dia_cierre) {
+      return { generated: false, reason: "Hoy no es el día de cierre." };
     }
 
-    const periodo = periodoFromDate(hoy);
+    const periodo = `${hoy.getFullYear()}-${hoy.getMonth() + 1}`;
 
-    // 🔹 Evitar duplicar liquidación del mismo período
     const existente = await prisma.liquidacion.findFirst({
       where: { periodo },
-      select: { id_liquidacion: true },
     });
+
     if (existente) {
-      return { generated: false, reason: "La liquidación del período ya fue generada." };
+      return { generated: false, reason: "Ya existe liquidación del período." };
     }
 
-    // 🔹 Calcular el próximo cierre
     const cierreEsteMes = setDate(hoy, config.dia_cierre);
     const proximoCierre = cierreEsteMes > hoy ? cierreEsteMes : addMonths(cierreEsteMes, 1);
 
-    // 🔹 Buscar cuotas vencidas hasta el próximo cierre
     const cuotasDelPeriodo = await prisma.cuota.findMany({
       where: {
         fecha_vencimiento: { lte: proximoCierre },
         estado: { in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida] },
         credito: { estado: "activo" },
       },
-      select: { id_cuota: true, monto_total: true },
     });
 
-    // 🔹 Buscar la última liquidación para arrastrar cuotas impagas
-    const ultimaLiquidacion = await prisma.liquidacion.findFirst({
+    const ultima = await prisma.liquidacion.findFirst({
       orderBy: { fecha_cierre: "desc" },
       include: {
-        detalle: {
-          include: {
-            cuota: true,
-          },
-        },
+        detalle: { include: { cuota: true } },
       },
     });
 
     const cuotasArrastradas =
-      ultimaLiquidacion?.detalle
+      ultima?.detalle
         .filter((d) => d.cuota.estado !== $Enums.EstadoCuota.pagada)
         .map((d) => ({
           id_cuota: d.id_cuota,
           monto_liquidado: d.cuota.monto_total,
         })) ?? [];
 
-    // 🔹 Unificar cuotas nuevas + arrastradas
-    const cuotasUnificadas = [
+    const todas = [
       ...cuotasArrastradas,
       ...cuotasDelPeriodo.map((c) => ({
         id_cuota: c.id_cuota,
@@ -91,28 +79,31 @@ export async function generarLiquidacionSiCorresponde() {
       })),
     ];
 
-    // Evitar duplicados (si una cuota arrastrada también entra por fecha)
-    const cuotasUnicas = Array.from(
-      new Map(cuotasUnificadas.map((c) => [c.id_cuota, c])).values()
-    );
+    const unicas = Array.from(new Map(todas.map((c) => [c.id_cuota, c])).values());
 
-    const total = cuotasUnicas.reduce((acc, c) => acc + c.monto_liquidado, 0);
+    const total = unicas.reduce((acc, c) => acc + c.monto_liquidado, 0);
 
-    // 🔹 Crear nueva liquidación
+    if (!config) {
+      return { generated: false, reason: "No hay configuración de cierre activa." };
+    }
+
+    const idMutual = info.mutualId!;
+    const idConfig = config.id_configuracion;
+
     const liquidacion = await prisma.liquidacion.create({
       data: {
-        id_mutual: config.id_mutual,
-        id_configuracion: config.id_configuracion,
+        id_mutual: idMutual,
+        id_configuracion: idConfig,
         periodo,
         fecha_cierre: hoy,
         total_monto: total,
         detalle: {
-          createMany: { data: cuotasUnicas },
+          createMany: { data: unicas },
         },
       },
     });
 
-    // 🔹 Actualizar última liquidación
+
     await prisma.configuracionCierre.update({
       where: { id_configuracion: config.id_configuracion },
       data: { ultima_liquidacion: hoy },
@@ -122,16 +113,20 @@ export async function generarLiquidacionSiCorresponde() {
       generated: true,
       id: liquidacion.id_liquidacion,
       total,
-      arrastradas: cuotasArrastradas.length,
       nuevas: cuotasDelPeriodo.length,
+      arrastradas: cuotasArrastradas.length,
     };
   });
 }
 
+
 /**
  * Crea o actualiza la configuración de cierre (una por mutual).
  */
-export async function upsertConfiguracionCierre(prevState: unknown, formData: FormData) {
+export async function upsertConfiguracionCierre(prev: unknown, formData: FormData) {
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+
   const parsed = ConfiguracionCierreSchema.safeParse({
     dia_cierre: Number(formData.get("dia_cierre")),
     activo: formData.get("activo") === "on" || formData.get("activo") === "true",
@@ -141,24 +136,26 @@ export async function upsertConfiguracionCierre(prevState: unknown, formData: Fo
     return { error: parsed.error.flatten().fieldErrors };
   }
 
-  return withRLS(async (prisma) => {
-    // 🔹 Ver si ya existe una configuración de cierre para la mutual actual
-    const existente = await prisma.configuracionCierre.findFirst();
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
+  const existente = await prisma.configuracionCierre.findFirst();
 
-    const data = {
-      dia_cierre: parsed.data.dia_cierre,
-      activo: parsed.data.activo,
-    };
+  const data = {
+    dia_cierre: parsed.data.dia_cierre,
+    activo: parsed.data.activo,
+  };
 
-    const record = existente
-      ? await prisma.configuracionCierre.update({
-          where: { id_configuracion: existente.id_configuracion },
-          data,
-        })
-      : await prisma.configuracionCierre.create({ data });
+  // Narrowing seguro
+  const idMutual = info.mutualId!;
 
-    return { success: true, record };
-  });
+  const record = existente
+    ? await prisma.configuracionCierre.update({
+        where: { id_configuracion: existente.id_configuracion },
+        data,
+      })
+    : await prisma.configuracionCierre.create({
+        data: { ...data, id_mutual: idMutual },
+      });
+
+  return { success: true, record };
+});
 }
-
-

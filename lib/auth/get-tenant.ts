@@ -1,7 +1,7 @@
 // lib/auth/get-tenant.ts
 
 import { headers } from "next/headers";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 /**
  * Ya no se usa para RLS.
@@ -25,4 +25,16 @@ export async function getCurrentMutualId(): Promise<number | null> {
   const meta = sessionClaims?.publicMetadata as { mutualId?: number };
 
   return meta?.mutualId ?? null;
+}
+
+export async function isAuthorizedUser(): Promise<boolean> {
+  // Minimal check: el usuario debe estar autenticado en Clerk.
+  // Puedes ampliar esta lógica para roles/whitelist según sea necesario.
+  try {
+    const user = await currentUser();
+    return !!user;
+  } catch (err) {
+    console.error("isAuthorizedUser error:", err);
+    return false;
+  }
 }

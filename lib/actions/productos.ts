@@ -84,3 +84,50 @@ export async function bajaProducto(id_producto: number) {
     return { error: "Error al dar de baja el producto." };
   }
 }
+
+
+/** ---------------------------------------------------------
+ * 🔹 Actualizar producto
+ --------------------------------------------------------- */
+export async function updateProducto(formData: FormData) {
+  try {
+    const info = await getServerUser();
+
+    if (!info?.mutualId || !info.userId) {
+      return { error: "No se pudo obtener el contexto del usuario." };
+    }
+
+    const id_producto = Number(formData.get("id_producto"));
+
+    if (!id_producto) return { error: "ID de producto inválido." };
+
+    const raw = {
+      nombre: formData.get("nombre") as string,
+      numero_cuotas: Number(formData.get("numero_cuotas")),
+      tasa_interes: Number(formData.get("tasa_interes")),
+      dia_vencimiento: Number(formData.get("dia_vencimiento")),
+      regla_vencimiento: formData.get("regla_vencimiento") as any,
+      comision_comerc: Number(formData.get("comision_comerc")),
+      comision_gestion: Number(formData.get("comision_gestion")),
+    };
+
+    const parsed = ProductoSchema.safeParse(raw);
+    if (!parsed.success)
+      return { error: parsed.error.errors.map((e) => e.message).join(", ") };
+
+    await withRLS(info.mutualId, info.userId, async (tx) => {
+      await tx.producto.update({
+        where: { id_producto },
+        data: {
+          ...parsed.data,
+        },
+      });
+    });
+
+    revalidatePath("/dashboard/productos");
+    return { success: true, message: "Producto actualizado correctamente." };
+  } catch (err) {
+    console.error("Error actualizando producto:", err);
+    return { error: "Error inesperado al actualizar el producto." };
+  }
+}

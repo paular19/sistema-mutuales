@@ -15,7 +15,12 @@ interface Credito {
     cuotas_pagadas: number;
     cuotas_pendientes: number;
     estado: string;
-    asociado?: { nombre: string | null; apellido: string | null };
+    asociado?: {
+        nombre: string | null;
+        apellido: string | null;
+        razon_social: string | null;
+        tipo_persona: "fisica" | "juridica" | null;
+    };
     producto?: { nombre: string | null };
 }
 
@@ -60,8 +65,11 @@ export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTab
                         {creditos.map((c) => (
                             <TableRow key={c.id_credito}>
                                 <TableCell>
-                                    {c.asociado?.apellido} {c.asociado?.nombre}
+                                    {c.asociado?.razon_social
+                                        ? c.asociado.razon_social
+                                        : `${c.asociado?.apellido ?? ""} ${c.asociado?.nombre ?? ""}`.trim() || "(Sin nombre)"}
                                 </TableCell>
+
                                 <TableCell>{c.producto?.nombre}</TableCell>
                                 <TableCell>{formatCurrency(c.monto)}</TableCell>
                                 <TableCell>{formatCurrency(c.saldo_capital_inicial)}</TableCell>

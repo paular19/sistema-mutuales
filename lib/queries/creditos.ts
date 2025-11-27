@@ -16,7 +16,6 @@ export async function getCreditos(params: any = {}) {
 
   if (!mutualId) throw new Error("Mutual ID no encontrado");
 
-  // ⭐ Ahora SI se pasan los 3 argumentos obligatorios
   return withRLS(mutualId, clerkId, async (tx) => {
     params = params || {};
 
@@ -27,6 +26,11 @@ export async function getCreditos(params: any = {}) {
     const page = Number(params.page ?? 1);
     const limit = Number(params.limit ?? 10);
     const skip = (page - 1) * limit;
+
+    const palabras = nombre
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
 
     const where: any = {
       ...(estado ? { estado } : {}),
@@ -39,14 +43,17 @@ export async function getCreditos(params: any = {}) {
           }
         : {}),
 
-      ...(nombre
+      ...(palabras.length > 0
         ? {
-            asociado: {
-              OR: [
-                { nombre: { contains: nombre, mode: "insensitive" } },
-                { apellido: { contains: nombre, mode: "insensitive" } },
-              ],
-            },
+            AND: palabras.map((p: string) => ({
+              asociado: {
+                OR: [
+                  { nombre: { contains: p, mode: "insensitive" } },
+                  { apellido: { contains: p, mode: "insensitive" } },
+                  { razon_social: { contains: p, mode: "insensitive" } },
+                ],
+              },
+            })),
           }
         : {}),
     };
@@ -55,7 +62,14 @@ export async function getCreditos(params: any = {}) {
       tx.credito.findMany({
         where,
         include: {
-          asociado: { select: { nombre: true, apellido: true } },
+          asociado: {
+            select: {
+              nombre: true,
+              apellido: true,
+              razon_social: true,
+              tipo_persona: true
+            }
+          },
           producto: { select: { nombre: true } },
         },
         orderBy: { fecha_creacion: "desc" },
@@ -66,6 +80,13 @@ export async function getCreditos(params: any = {}) {
       tx.credito.count({ where }),
     ]);
 
+    // 🔥 Ajustar estado automáticamente
+    for (const c of creditos) {
+      if (c.cuotas_pendientes === 0) {
+        c.estado = "cancelado";
+      }
+    }
+
     return {
       creditos,
       total,
@@ -75,6 +96,8 @@ export async function getCreditos(params: any = {}) {
     };
   });
 }
+
+
 
 /**
  * 🔹 Obtener crédito por ID — con RLS (serializado)
@@ -93,6 +116,8 @@ export async function getCreditoById(id_credito: number) {
             id_asociado: true,
             nombre: true,
             apellido: true,
+            razon_social: true,
+            tipo_persona: true
           },
         },
         producto: {

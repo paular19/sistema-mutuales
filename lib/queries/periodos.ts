@@ -1,12 +1,18 @@
-// lib/queries/periodos.ts
+"use server";
+
 import { withRLS } from "@/lib/db/with-rls";
+import { getServerUser } from "@/lib/auth/get-server-user";
 import { addMonths, setDate, startOfMonth, endOfMonth } from "date-fns";
+import { ConfiguracionCierre } from "@prisma/client";
 
 /**
  * 🔹 Obtiene la configuración de cierre activa de la mutual actual
  */
-export async function getConfiguracionCierreActiva() {
-  return withRLS(async (prisma) => {
+export async function getConfiguracionCierreActiva(): Promise<ConfiguracionCierre | null> {
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
+
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
     return prisma.configuracionCierre.findFirst({
       where: { activo: true },
       orderBy: { id_configuracion: "desc" },
@@ -19,19 +25,48 @@ export async function getConfiguracionCierreActiva() {
  * basado en el día de cierre configurado.
  */
 export async function getPeriodoActual() {
-  const config = await getConfiguracionCierreActiva();
-  if (!config) throw new Error("No hay configuración de cierre activa");
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
 
-  const hoy = new Date();
-  const diaCierre = config.dia_cierre;
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
+    const config = await prisma.configuracionCierre.findFirst({
+      where: { activo: true },
+      orderBy: { id_configuracion: "desc" },
+    });
 
-  const cierreEsteMes = setDate(hoy, diaCierre);
-  const proximoCierre = cierreEsteMes > hoy ? cierreEsteMes : addMonths(cierreEsteMes, 1);
+    // 🔹 Fallback seguro: la página NO debe romper
+    if (!config) {
+      return {
+        tieneConfiguracion: false,
+        periodo: null,
+        dia_cierre: null,
+        proximoCierre: null,
+        inicio: null,
+        fin: null,
+      };
+    }
 
-  const inicio = startOfMonth(proximoCierre);
-  const fin = endOfMonth(proximoCierre);
+    const hoy = new Date();
+    const diaCierre = config.dia_cierre;
 
-  const periodo = `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, "0")}`;
+    const cierreEsteMes = setDate(hoy, diaCierre);
+    const proximoCierre =
+      cierreEsteMes > hoy ? cierreEsteMes : addMonths(cierreEsteMes, 1);
 
-  return { periodo, dia_cierre: diaCierre, proximoCierre, inicio, fin };
+    const inicio = startOfMonth(proximoCierre);
+    const fin = endOfMonth(proximoCierre);
+
+    const periodo = `${inicio.getFullYear()}-${String(
+      inicio.getMonth() + 1
+    ).padStart(2, "0")}`;
+
+    return {
+      tieneConfiguracion: true,
+      periodo,
+      dia_cierre: diaCierre,
+      proximoCierre,
+      inicio,
+      fin,
+    };
+  });
 }

@@ -92,6 +92,7 @@ export async function createCredito(formData: FormData) {
       // Crear crédito
       const credito = await tx.credito.create({
         data: {
+          id_mutual: mutualId,
           id_asociado,
           id_producto,
           monto,
@@ -241,6 +242,7 @@ export async function importCreditosAction(formData: FormData) {
 
           await tx.credito.create({
             data: {
+              id_mutual: ctx.mutualId,
               id_asociado: asociado.id_asociado,
               id_producto: producto.id_producto,
               monto,

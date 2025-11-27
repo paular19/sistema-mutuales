@@ -4,9 +4,8 @@ generator client {
 
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 
@@ -45,6 +44,7 @@ model Mutual {
   cuit                  String?               @db.VarChar(20)
   estado                Boolean               @default(true)
   asociados             Asociado[]
+  creditos     Credito[]
   pagos                 Pago[]
   productos             Producto[]
   tiposAsociado         TipoAsociado[]
@@ -135,6 +135,7 @@ model Producto {
 }
 
 model Credito {
+  id_mutual       Int
   id_credito            Int           @id @default(autoincrement())
   id_asociado           Int
   id_producto           Int
@@ -157,6 +158,7 @@ model Credito {
   asociado Asociado @relation(fields: [id_asociado], references: [id_asociado])
   producto Producto @relation(fields: [id_producto], references: [id_producto])
   cuotas   Cuota[]
+  mutual          Mutual     @relation(fields: [id_mutual], references: [id_mutual])
 
   tasa_interes      Float
   numero_cuotas     Int

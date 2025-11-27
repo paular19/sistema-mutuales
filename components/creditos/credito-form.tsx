@@ -14,11 +14,11 @@ import { importCreditosAction } from "@/lib/actions/creditos";
 type ImportResult =
   | { error: string }
   | {
-      success: true;
-      creados: number;
-      asociadosNuevos: number;
-      errores: { fila: number; mensaje: string }[];
-    };
+    success: true;
+    creados: number;
+    asociadosNuevos: number;
+    errores: { fila: number; mensaje: string }[];
+  };
 
 // Type guard
 function isImportSuccess(
@@ -241,11 +241,18 @@ export function CreditoForm({
             required
           >
             <option value="">Seleccionar asociado</option>
-            {asociados.map((a) => (
-              <option key={a.id_asociado} value={a.id_asociado}>
-                {(a.apellido ?? "") + " " + (a.nombre ?? "")}
-              </option>
-            ))}
+
+            {asociados.map((a) => {
+              const etiqueta = a.tipo_persona === "juridica"
+                ? a.razon_social || "(Sin razón social)"
+                : `${a.apellido ?? ""} ${a.nombre ?? ""}`.trim() || "(Sin nombre)";
+
+              return (
+                <option key={a.id_asociado} value={a.id_asociado}>
+                  {etiqueta}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -258,7 +265,7 @@ export function CreditoForm({
             onChange={(e) =>
               setSelectedProducto(
                 productos.find((p) => p.id_producto === Number(e.target.value)) ||
-                  null
+                null
               )
             }
             className="w-full border rounded-md p-2"
@@ -340,8 +347,8 @@ export function CreditoForm({
               ? "Actualizando..."
               : "Creando..."
             : isEdit
-            ? "Actualizar crédito"
-            : "Crear crédito"}
+              ? "Actualizar crédito"
+              : "Crear crédito"}
         </Button>
       </form>
     </div>

@@ -16,7 +16,7 @@ export default async function NewCreditoPage() {
     info.userId,
     async (prisma) => {
       const asociados = await prisma.asociado.findMany({
-        select: { id_asociado: true, nombre: true, apellido: true },
+        select: { id_asociado: true, nombre: true, apellido: true, razon_social: true, tipo_persona: true, },
         orderBy: { apellido: "asc" },
       });
 

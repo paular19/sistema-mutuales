@@ -3,14 +3,18 @@
 import { withRLS } from "@/lib/db/with-rls";
 import { HistorialQuerySchema } from "@/lib/validators/liquidaciones";
 import { addMonths, setDate } from "date-fns";
-import { $Enums } from "@prisma/client";
+import { $Enums, ConfiguracionCierre } from "@prisma/client";
 import { getPeriodoActual } from "@/lib/queries/periodos";
+import { getServerUser } from "../auth/get-server-user";
 
 /**
  * Obtiene la configuración de cierre activa (una por mutual).
  */
-export async function getConfiguracionCierre() {
-  return withRLS(async (prisma) => {
+export async function getConfiguracionCierre(): Promise<ConfiguracionCierre | null> {
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
     return prisma.configuracionCierre.findFirst({
       where: { activo: true },
     });
@@ -25,9 +29,12 @@ export async function getHistorialLiquidaciones(params: {
   pageSize?: number;
   periodo?: string;
 }) {
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+
   const { page, pageSize, periodo } = HistorialQuerySchema.parse(params);
 
-  return withRLS(async (prisma) => {
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
     const where = periodo ? { periodo } : {};
 
     const [items, total] = await Promise.all([
@@ -38,14 +45,10 @@ export async function getHistorialLiquidaciones(params: {
         take: pageSize,
         select: {
           id_liquidacion: true,
-          id_mutual: true,
           periodo: true,
           fecha_cierre: true,
           total_monto: true,
-          id_configuracion: true,
-          configuracion: {
-            select: { dia_cierre: true },
-          },
+          configuracion: { select: { dia_cierre: true } },
           _count: { select: { detalle: true } },
         },
       }),
@@ -67,7 +70,10 @@ export async function getHistorialLiquidaciones(params: {
  */
 // lib/queries/liquidaciones.ts
 export async function getLiquidacionById(id: number) {
-  return withRLS(async (prisma) => {
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
     const liquidacion = await prisma.liquidacion.findUnique({
       where: { id_liquidacion: id },
       include: {
@@ -79,7 +85,7 @@ export async function getLiquidacionById(id: number) {
                 credito: {
                   include: { asociado: true, producto: true },
                 },
-                pagoCuotas: true, 
+                pagoCuotas: true,
               },
             },
           },
@@ -89,34 +95,60 @@ export async function getLiquidacionById(id: number) {
 
     if (!liquidacion) return null;
 
-    // 🔹 Cálculo actualizado del estado (opcional)
     const detalleActualizado = liquidacion.detalle.map((d) => {
       const cuota = d.cuota;
-      const pagado = cuota.pagoCuotas?.reduce((acc, p) => acc + p.monto_pagado, 0) ?? 0;
+      const pagado =
+        cuota.pagoCuotas?.reduce((acc, p) => acc + p.monto_pagado, 0) ?? 0;
       const saldo = Math.max(cuota.monto_total - pagado, 0);
       const vencida =
-        new Date(cuota.fecha_vencimiento) < new Date() && saldo > 0 && cuota.estado !== "pagada";
-      const estadoCalc =
-        cuota.estado === "pagada" ? "pagada" : vencida ? "vencida" : "pendiente";
+        new Date(cuota.fecha_vencimiento) < new Date() &&
+        saldo > 0 &&
+        cuota.estado !== "pagada";
 
-      return { ...d, cuota: { ...cuota, estadoCalc, saldo, pagado } };
+      return {
+        ...d,
+        cuota: {
+          ...cuota,
+          estadoCalc: cuota.estado === "pagada" ? "pagada" : vencida ? "vencida" : "pendiente",
+          saldo,
+          pagado,
+        },
+      };
     });
 
-    return { ...liquidacion, detalle: detalleActualizado };
+    return {
+      ...liquidacion,
+      detalle: detalleActualizado,
+    };
   });
 }
-
 
 export async function getPreLiquidacionActual(filters?: {
   search?: string;
   producto?: string;
 }) {
-  return withRLS(async (prisma) => {
-    const { proximoCierre } = await getPeriodoActual();
+  const info = await getServerUser();
+  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
+
+  return withRLS(info.mutualId, info.userId, async (prisma) => {
+
+    const periodoActual = await getPeriodoActual();
+
+    // 🔹 Si no hay configuración, devolver estado vacío seguro
+    if (!periodoActual.tieneConfiguracion) {
+      return {
+        filas: [],
+        total: 0,
+        proximoCierre: null,
+        sinConfiguracion: true,
+      };
+    }
+
+    const { proximoCierre } = periodoActual;
 
     const cuotas = await prisma.cuota.findMany({
       where: {
-        fecha_vencimiento: { lte: proximoCierre },
+        fecha_vencimiento: { lte: proximoCierre! },
         estado: { in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida] },
         credito: {
           estado: "activo",
@@ -125,8 +157,8 @@ export async function getPreLiquidacionActual(filters?: {
                 OR: [
                   { nombre: { contains: filters.search, mode: "insensitive" } },
                   { apellido: { contains: filters.search, mode: "insensitive" } },
+                  { razon_social: { contains: filters.search, mode: "insensitive" } },
                   { cuit: { contains: filters.search, mode: "insensitive" } },
-                  { email: { contains: filters.search, mode: "insensitive" } },
                 ],
               }
             : undefined,
@@ -143,7 +175,10 @@ export async function getPreLiquidacionActual(filters?: {
 
     const filas = cuotas.map((c) => ({
       id_cuota: c.id_cuota,
-      asociado: `${c.credito.asociado.apellido ?? ""}, ${c.credito.asociado.nombre ?? ""}`.trim(),
+      asociado:
+        c.credito.asociado.tipo_persona === "juridica"
+          ? c.credito.asociado.razon_social
+          : `${c.credito.asociado.apellido}, ${c.credito.asociado.nombre}`,
       producto: c.credito.producto.nombre,
       numero_credito: c.credito.id_credito,
       numero_cuota: c.numero_cuota,
@@ -152,8 +187,14 @@ export async function getPreLiquidacionActual(filters?: {
       estado: c.estado,
     }));
 
-    const total = filas.reduce((acc, f) => acc + f.monto_total, 0);
-    return { filas, total, proximoCierre };
+    return {
+      filas,
+      total: filas.reduce((acc, f) => acc + f.monto_total, 0),
+      proximoCierre,
+      sinConfiguracion: false,
+    };
   });
 }
+
+
 
