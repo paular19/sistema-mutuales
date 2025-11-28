@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const preferredRegion = "iad1";
+
 import { NextResponse } from "next/server";
 import { exportInforme3688TxtAction } from "@/lib/actions/informes";
 
