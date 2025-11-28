@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Créditos', href: '/dashboard/creditos', icon: CreditCard },
   { name: 'Liquidaciones', href: '/dashboard/liquidaciones', icon: Calculator },
   { name: 'Cancelaciones', href: '/dashboard/cancelaciones', icon: Banknote },
-  { name: 'Informes', href: '/dashboard/informes', icon: FileText },
+  { name: 'Informes', href: '/informes', icon: FileText },
 ];
 
 export function DashboardNav() {
@@ -34,7 +34,7 @@ export function DashboardNav() {
           <Building2 className="h-8 w-8 text-blue-600" />
           <span className="text-xl font-bold text-gray-900">Cobranzas</span>
         </div>
-        
+
         <ul className="space-y-2">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
