@@ -25,11 +25,11 @@ export default async function NuevoPagoPage(props: {
       <h1 className="text-2xl font-bold">Generar recibo de pago</h1>
 
       {/* 
-        ✅ Enviamos los datos a la ruta /dashboard/pagos/descargar
+        ✅ Enviamos los datos a la ruta /endpoints/pagos/descargar
         que devuelve directamente el PDF.
       */}
       <form
-        action="/dashboard/pagos/descargar"
+        action="/endpoints/pagos/descargar"
         method="POST"
         className="space-y-4 border rounded-xl p-6 bg-white shadow-sm"
       >

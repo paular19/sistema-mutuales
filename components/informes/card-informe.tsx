@@ -16,7 +16,7 @@ export function InformeCard({ informe }: InformeCardProps) {
     if (informe.action === "download") {
       try {
         // 🟢 RUTA CORREGIDA
-        const res = await fetch(`/informes/${informe.id}`, { method: "GET" });
+        const res = await fetch(`/endpoints/informes/${informe.id}`, { method: "GET" });
 
         if (!res.ok) throw new Error("Error descargando informe");
 
@@ -38,7 +38,7 @@ export function InformeCard({ informe }: InformeCardProps) {
         alert("Error al generar el archivo");
       }
     } else {
-      window.location.href = `/informes/${informe.id}`;
+      window.location.href = `/dashboard/informes/${informe.id}`;
     }
   };
 

@@ -1,4 +1,4 @@
-// app/informes/saldos-contables/route.ts
+// app/endpoints/informes/saldos-contables/route.ts
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
 

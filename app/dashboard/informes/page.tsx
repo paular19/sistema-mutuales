@@ -1,4 +1,4 @@
-// app/informes/page.tsx
+// app/dashboard/informes/page.tsx
 import { InformeCard } from "@/components/informes/card-informe";
 
 export default async function InformesPage() {

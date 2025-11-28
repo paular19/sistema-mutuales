@@ -21,7 +21,7 @@ const navigation = [
   { name: 'Créditos', href: '/dashboard/creditos', icon: CreditCard },
   { name: 'Liquidaciones', href: '/dashboard/liquidaciones', icon: Calculator },
   { name: 'Cancelaciones', href: '/dashboard/cancelaciones', icon: Banknote },
-  { name: 'Informes', href: '/informes', icon: FileText },
+  { name: 'Informes', href: '/dashboard/informes', icon: FileText },
 ];
 
 export function DashboardNav() {
