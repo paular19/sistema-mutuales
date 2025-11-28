@@ -13,35 +13,34 @@ interface InformeCardProps {
 
 export function InformeCard({ informe }: InformeCardProps) {
   const handleClick = async () => {
-  if (informe.action === "download") {
-    try {
-      const res = await fetch(`/dashboard/informes/${informe.id}`, { method: "GET" }); // 🔥 ACÁ VA EL CAMBIO
+    if (informe.action === "download") {
+      try {
+        // 🟢 RUTA CORREGIDA
+        const res = await fetch(`/informes/${informe.id}`, { method: "GET" });
 
-      if (!res.ok) throw new Error("Error descargando informe");
+        if (!res.ok) throw new Error("Error descargando informe");
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
 
-      if (informe.id === "3688") {
-        a.download = `informe-${informe.id}.txt`;
-      } else {
-        a.download = `informe-${informe.id}.xlsx`;
+        if (informe.id === "3688") {
+          a.download = `informe-${informe.id}.txt`;
+        } else {
+          a.download = `informe-${informe.id}.xlsx`;
+        }
+
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+        alert("Error al generar el archivo");
       }
-
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
-      alert("Error al generar el archivo");
+    } else {
+      window.location.href = `/informes/${informe.id}`;
     }
-  } else {
-    window.location.href = `/informes/${informe.id}`;
-  }
-};
-
-
+  };
 
   return (
     <Card
