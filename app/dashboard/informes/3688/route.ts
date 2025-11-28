@@ -1,10 +1,12 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const dynamicParams = true;
 export const runtime = "nodejs";
-export const preferredRegion = "iad1";
+
 
 import { NextResponse } from "next/server";
 import { exportInforme3688TxtAction } from "@/lib/actions/informes";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

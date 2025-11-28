@@ -1,5 +1,8 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const dynamicParams = true;
 export const runtime = "nodejs";
-export const preferredRegion = "iad1"; 
+
 
 import { NextResponse } from "next/server";
 import { withRLS } from "@/lib/db/with-rls";
