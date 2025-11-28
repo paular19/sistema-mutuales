@@ -4,13 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 
-export default async function WalletPage({ params }: { params: { id_asociado: string } }) {
-  const id_asociado = Number(params.id_asociado);
-  const data = await getAsociadoWallet(id_asociado);
+export default async function WalletPage(props: {
+  params: Promise<{ id_asociado: string }>;
+}) {
+
+  const { id_asociado } = await props.params;
+
+  const id = Number(id_asociado);
+  const data = await getAsociadoWallet(id);
 
   if (!data) {
     return <p className="text-red-500">Asociado no encontrado</p>;
   }
+
 
   return (
     <div className="space-y-6 max-w-xl mx-auto py-8">

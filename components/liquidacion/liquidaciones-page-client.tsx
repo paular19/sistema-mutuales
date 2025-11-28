@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/utils/format";
 
 interface Cuota {
   id_cuota: number;
-  asociado: string;
+  asociado: string | null;
   producto: string;
   numero_credito: number;
   numero_cuota: number;

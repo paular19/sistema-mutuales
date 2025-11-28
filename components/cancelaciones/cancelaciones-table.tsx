@@ -13,23 +13,34 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { CancelacionesImport } from "@/components/cancelaciones/cancelaciones-import";
+import { EstadoCuota } from "@prisma/client";
 
 interface Cuota {
   id_cuota: number;
-  asociado: string;
+  asociado: string | null;
   producto: string;
   numero_credito: number;
   numero_cuota: number;
-  fecha_vencimiento: Date;
+  fecha_vencimiento: Date | string;
   monto_total: number;
-  estado: string;
+  estado: EstadoCuota;
 }
 
-export function CancelacionesTable({ filas = [] }: { filas: Cuota[] }) {
+export function CancelacionesTable({
+  filas = [],
+  tipo,
+}: {
+  filas: Cuota[];
+  tipo?: "abonadas" | "impagas";
+}) {
   if (!filas || filas.length === 0) {
     return (
       <div className="border rounded-lg p-6 text-center text-muted-foreground">
-        No hay cuotas abonadas en este período.
+        {tipo === "abonadas"
+          ? "No hay cuotas abonadas en este período."
+          : tipo === "impagas"
+            ? "No hay cuotas impagas en este período."
+            : "No hay datos disponibles."}
       </div>
     );
   }
@@ -65,7 +76,7 @@ export function CancelacionesTable({ filas = [] }: { filas: Cuota[] }) {
                 <TableCell>{f.producto}</TableCell>
                 <TableCell>{f.numero_credito}</TableCell>
                 <TableCell>{f.numero_cuota}</TableCell>
-                <TableCell>{formatDate(f.fecha_vencimiento)}</TableCell>
+                {formatDate(new Date(f.fecha_vencimiento))}
                 <TableCell className="text-right">
                   {formatCurrency(f.monto_total)}
                 </TableCell>

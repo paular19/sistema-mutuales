@@ -11,13 +11,13 @@ interface CreditosPageSearchParams {
   limit?: string;
 }
 
-export default async function CreditosPage({
-  searchParams,
-}: {
-  searchParams: CreditosPageSearchParams;
+export default async function CreditosPage(props: {
+  searchParams: Promise<CreditosPageSearchParams>;
 }) {
 
-  // 🔥 Convertimos searchParams en filtros limpios
+  const searchParams = await props.searchParams;
+
+  // Convertimos searchParams en filtros limpios
   const filters = {
     nombre: searchParams.nombre ?? "",
     estado: searchParams.estado ?? "",

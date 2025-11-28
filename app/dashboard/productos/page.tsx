@@ -6,11 +6,11 @@ import ProductosFilters from "@/components/productos/productos-filters";
 import { ProductosTable } from "@/components/productos/productos-table";
 import { getProductos } from "@/lib/queries/productos";
 
-export default async function ProductosPage({
-  searchParams,
-}: {
-  searchParams?: { search?: string; page?: string };
+export default async function ProductosPage(props: {
+  searchParams: Promise<{ search?: string; page?: string }>;
 }) {
+
+  const searchParams = await props.searchParams;
 
   const search = searchParams?.search ?? "";
   const page = Number(searchParams?.page ?? 1);

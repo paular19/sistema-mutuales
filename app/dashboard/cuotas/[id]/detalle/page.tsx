@@ -6,12 +6,12 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export default async function DetalleCuotaPage({
-  params,
-}: {
-  params: { id: string };
+export default async function DetalleCuotaPage(props: {
+  params: Promise<{ id: string }>;
 }) {
-  const id_cuota = Number(params.id);
+  const { id } = await props.params;
+  const id_cuota = Number(id);
+
   if (isNaN(id_cuota)) throw new Error("ID de cuota inválido.");
 
   const { cuota } = await getCuotaDetalle(id_cuota);

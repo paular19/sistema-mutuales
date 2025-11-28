@@ -96,8 +96,8 @@ export default function CancelacionesPageClient({
         <CancelacionesTable
           filas={impagas}
           tipo="impagas"
-          selectable
-          onSelectionChange={setSelectedIds}
+          // selectable
+          // onSelectionChange={setSelectedIds}
         />
       </section>
 

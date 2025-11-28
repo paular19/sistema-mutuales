@@ -5,10 +5,16 @@ import { Button } from "@/components/ui/button";
 import { getLiquidacionById } from "@/lib/queries/liquidaciones";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 
-export default async function LiquidacionDetallePage({ params }: { params: { id: string } }) {
-  const id = Number(params.id);
-  if (Number.isNaN(id)) return notFound();
-  const liq = await getLiquidacionById(id);
+export default async function LiquidacionDetallePage(props: {
+  params: Promise<{ id: string }>;
+}) {
+
+  const { id } = await props.params;
+
+  const idNum = Number(id);
+  if (Number.isNaN(idNum)) return notFound();
+
+  const liq = await getLiquidacionById(idNum);
   if (!liq) return notFound();
 
   const total = liq.detalle.reduce((acc, d) => acc + d.monto_liquidado, 0);

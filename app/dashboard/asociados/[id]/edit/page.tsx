@@ -5,40 +5,42 @@ import { updateAsociado } from "@/lib/actions/asociados";
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
 import { getTiposAsociado } from "@/lib/queries/tiposAsociado";
+import { serializePrisma } from "@/lib/utils/serialize-prisma";
 
-export default async function EditAsociadoPage({
-  params,
-}: {
-  params: { id: string };
+export default async function EditAsociadoPage(props: {
+  params: Promise<{ id: string }>;
 }) {
-  // 1️⃣ Parsear y validar el ID que viene por la URL
-  const id = Number(params.id);
-  if (!params.id || Number.isNaN(id)) {
+  // ⬅️ Next 15: params es una Promise
+  const { id } = await props.params;
+  const idNum = Number(id);
+
+  if (!id || Number.isNaN(idNum)) {
     return <p>ID de asociado inválido</p>;
   }
 
-  // 2️⃣ Obtener usuario + mutual para RLS
+  // RLS
   const info = await getServerUser();
   if (!info || !info.mutualId) {
     return <p>Mutual no encontrada o usuario no autenticado</p>;
   }
 
-  const mutualId = info.mutualId as number;
+  const mutualId = info.mutualId;
   const clerkId = info.userId;
 
-  // 3️⃣ Traer asociado y tipos en paralelo (el asociado bajo RLS)
+  // Data en paralelo
   const [asociado, tipos] = await Promise.all([
     withRLS(mutualId, clerkId, (tx) =>
       tx.asociado.findFirst({
-        where: { id_asociado: id }, // RLS ya filtra por mutual
+        where: { id_asociado: idNum },
       })
     ),
     getTiposAsociado(),
   ]);
 
-  if (!asociado) {
-    return <p>Asociado no encontrado</p>;
-  }
+  if (!asociado) return <p>Asociado no encontrado</p>;
+
+  // 🔥 Convertir Decimal → Number
+  const asociadoSerializado = serializePrisma(asociado);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -48,12 +50,11 @@ export default async function EditAsociadoPage({
       </p>
 
       <AsociadoForm
-        initialData={asociado}
-        action={updateAsociado.bind(null, asociado.id_asociado)}
+        initialData={asociadoSerializado}
+        action={updateAsociado.bind(null, asociadoSerializado.id_asociado)}
         mode="edit"
         tiposAsociado={tipos}
       />
     </div>
   );
 }
-

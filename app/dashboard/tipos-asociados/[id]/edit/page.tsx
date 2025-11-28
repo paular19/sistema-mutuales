@@ -2,11 +2,14 @@ import { getTipoAsociadoById, getTiposAsociado } from "@/lib/queries/tiposAsocia
 import TiposAsociadoFormClient from "@/components/asociados/tipo-asociado/tipoAsociadoForm";
 
 interface EditPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default async function EditTipoAsociadoPage({ params }: EditPageProps) {
-  const tipo = await getTipoAsociadoById(Number(params.id));
+export default async function EditTipoAsociadoPage(props: EditPageProps) {
+
+  const { id } = await props.params;
+
+  const tipo = await getTipoAsociadoById(Number(id));
   const tipos = await getTiposAsociado();
 
   if (!tipo) {

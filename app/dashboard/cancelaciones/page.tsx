@@ -1,6 +1,6 @@
 import { getCancelacionesDelPeriodo } from "@/lib/queries/cancelacion";
 import { getPeriodoActual } from "@/lib/utils/getPeriodoActual";
-import { registrarCancelacion } from "@/lib/queries/cancelacion";
+import { registrarCancelacion } from "@/lib/actions/cancelacion";
 import { revalidatePath } from "next/cache";
 import { CancelacionesTable } from "@/components/cancelaciones/cancelaciones-table";
 import { Card, CardContent } from "@/components/ui/card";

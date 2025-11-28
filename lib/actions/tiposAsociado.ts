@@ -11,11 +11,12 @@ export async function loadTiposAsociadoAction() {
   console.log("📌 Ejecutando loadTiposAsociadoAction...");
 
   const info = await getServerUser();
-  if (!info) throw new Error("Usuario no autenticado");
+  if (!info?.mutualId || !info.userId) {
+    throw new Error("Usuario no autenticado o sin mutual asignada");
+  }
 
-  const tipos = await withRLS(info.mutualId!, info.userId, async (tx) => {
+  const tipos = await withRLS(info.mutualId, info.userId, async (tx) => {
     return tx.tipoAsociado.findMany({
-      where: { id_mutual: info.mutualId },
       orderBy: { nombre: "asc" },
     });
   });
@@ -28,15 +29,21 @@ export async function loadTiposAsociadoAction() {
    🔹 CREAR TIPO
 --------------------------------------------------------- */
 export async function createTipoAsociado(data: { nombre: string }) {
-  try {
-    const info = await getServerUser();
-    if (!info) throw new Error("Usuario no autenticado");
+  const info = await getServerUser();
 
-    const result = await withRLS(info.mutualId!, info.userId, async (tx) => {
+  if (!info || !info.mutualId || !info.userId) {
+    return { error: "Usuario no autenticado o mutualId inválido" };
+  }
+
+  const mutualId = info.mutualId;  // 🔥 ahora es number
+  const clerkId = info.userId;
+
+  try {
+    const result = await withRLS(mutualId, clerkId, async (tx) => {
       return tx.tipoAsociado.create({
         data: {
           nombre: data.nombre,
-          id_mutual: info.mutualId!,
+          id_mutual: mutualId,   // ✔ sin error TS
         },
       });
     });
@@ -49,21 +56,21 @@ export async function createTipoAsociado(data: { nombre: string }) {
   }
 }
 
+
 /* ---------------------------------------------------------
    🔹 ACTUALIZAR TIPO
 --------------------------------------------------------- */
-export async function updateTipoAsociado(
-  id: number,
-  data: { nombre: string }
-) {
-  try {
-    const info = await getServerUser();
-    if (!info) throw new Error("Usuario no autenticado");
+export async function updateTipoAsociado(id: number, data: { nombre: string }) {
+  const info = await getServerUser();
+  if (!info?.mutualId || !info.userId) {
+    return { error: "Usuario no autenticado o sin mutual asignada" };
+  }
 
-    return await withRLS(info.mutualId!, info.userId, async (tx) => {
+  try {
+    return await withRLS(info.mutualId, info.userId, async (tx) => {
       // ⭐ Validar que exista y pertenezca a esta mutual
       const tipo = await tx.tipoAsociado.findFirst({
-        where: { id_tipo: id, id_mutual: info.mutualId },
+        where: { id_tipo: id },
       });
 
       if (!tipo) {
@@ -89,22 +96,25 @@ export async function updateTipoAsociado(
    🔹 ELIMINAR TIPO
 --------------------------------------------------------- */
 export async function deleteTipoAsociado(id: number) {
-  try {
-    const info = await getServerUser();
-    if (!info) throw new Error("Usuario no autenticado");
+  const info = await getServerUser();
+  if (!info?.mutualId || !info.userId) {
+    return { error: "Usuario no autenticado o sin mutual asignada" };
+  }
 
-    return await withRLS(info.mutualId!, info.userId, async (tx) => {
-      // ⭐ Validar existencia y mutual
+  try {
+    return await withRLS(info.mutualId, info.userId, async (tx) => {
+      // ⭐ Validar existencia
       const tipo = await tx.tipoAsociado.findFirst({
-        where: { id_tipo: id, id_mutual: info.mutualId },
+        where: { id_tipo: id },
       });
 
-      if (!tipo)
+      if (!tipo) {
         return { error: "Tipo no encontrado o pertenece a otra mutual" };
+      }
 
       // ⭐ Evitar eliminar tipos en uso
       const count = await tx.asociado.count({
-        where: { id_tipo: id, id_mutual: info.mutualId },
+        where: { id_tipo: id },
       });
 
       if (count > 0) {

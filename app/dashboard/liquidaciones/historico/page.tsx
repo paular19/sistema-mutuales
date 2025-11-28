@@ -3,11 +3,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils/format";
 
-export default async function HistoricoLiquidacionesPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; pageSize?: string };
+export default async function HistoricoLiquidacionesPage(props: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
 }) {
+
+  const searchParams = await props.searchParams;
+
   const page = Number(searchParams.page ?? 1);
   const pageSize = Number(searchParams.pageSize ?? 20);
 

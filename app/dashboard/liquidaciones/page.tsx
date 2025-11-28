@@ -14,16 +14,18 @@ interface SearchParams {
   page?: string;
 }
 
-export default async function LiquidacionesPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
+export default async function LiquidacionesPage(props: {
+  searchParams: Promise<SearchParams>;
 }) {
+  // 🔥 Next.js 15: searchParams es una Promise
+  const searchParams = await props.searchParams;
+
   const page = parseInt(searchParams.page || "1");
   const limit = 10;
 
   // 🔹 Traemos las cuotas
-  const { filas, total, proximoCierre } = await getPreLiquidacionActual(searchParams ?? {});
+  const { filas, total, proximoCierre } =
+    await getPreLiquidacionActual(searchParams ?? {});
 
   const totalPages = Math.ceil(filas.length / limit) || 1;
   const startIndex = (page - 1) * limit;

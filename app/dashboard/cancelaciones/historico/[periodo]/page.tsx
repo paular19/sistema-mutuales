@@ -1,15 +1,17 @@
+// app/dashboard/cancelaciones/[periodo]/page.tsx
+
 import { getCancelacionByPeriodo } from "@/lib/queries/cancelacion";
 import { CancelacionesHeader } from "@/components/cancelaciones/cancelaciones-header";
 import { CancelacionesTable } from "@/components/cancelaciones/cancelaciones-table";
 import { CancelacionesResumen } from "@/components/cancelaciones/cancelaciones-resumen";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default async function CancelacionHistoricaPage({
-  params,
-}: {
-  params: { periodo: string };
+export default async function CancelacionHistoricaPage(props: {
+  params: Promise<{ periodo: string }>;
 }) {
-  const { periodo } = params;
+  // 🚨 Next 15: params es una Promise
+  const { periodo } = await props.params;
+
   const { abonadas, impagas, totalAbonadas, totalImpagas } =
     await getCancelacionByPeriodo(periodo);
 

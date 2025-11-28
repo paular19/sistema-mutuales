@@ -5,22 +5,24 @@ import { Pagination } from "@/components/ui/pagination";
 import { formatCurrency } from "@/lib/utils/format";
 import { getCuotasByCreditoId } from "@/lib/queries/cuotas";
 
-export default async function CuotasDeCreditoPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { estado?: string; fecha?: string; page?: string };
+
+export default async function CuotasDeCreditoPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ estado?: string; fecha?: string; page?: string }>;
 }) {
-  const id_credito = Number(params.id);
+  // 🔥 Next.js 15 → params y searchParams son Promises
+  const { id } = await props.params;
+  const { estado, fecha, page: pageString } = await props.searchParams;
+
+  const id_credito = Number(id);
   if (isNaN(id_credito)) throw new Error("ID de crédito inválido.");
 
-  const page = Number(searchParams.page) || 1;
+  const page = Number(pageString) || 1;
 
   const { credito, cuotas, totales, pagination, comisionGestion } =
     await getCuotasByCreditoId(id_credito, {
-      estado: searchParams.estado as any,
-      fecha: searchParams.fecha,
+      estado: estado as any,
+      fecha,
       page,
     });
 

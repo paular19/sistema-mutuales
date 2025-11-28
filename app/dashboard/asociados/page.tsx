@@ -1,3 +1,5 @@
+// app/dashboard/asociados/page.tsx
+
 import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,15 +12,15 @@ interface SearchParams {
   page?: string;
 }
 
-export default async function AsociadosPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
+export default async function AsociadosPage(props: {
+  searchParams: Promise<SearchParams>;
 }) {
-  // acá SÍ tomamos los params del server
+  // NEXT 15: searchParams es una Promise
+  const searchParams = await props.searchParams;
+
   const params = {
-    search: searchParams.search || "",
-    page: searchParams.page || "1",
+    search: searchParams?.search || "",
+    page: searchParams?.page || "1",
   };
 
   return (

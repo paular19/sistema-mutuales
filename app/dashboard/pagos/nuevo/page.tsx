@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "lucide-react";
 
-export default function NuevoPagoPage({
-  searchParams,
-}: {
-  searchParams: { cuotas?: string };
+export default async function NuevoPagoPage(props: {
+  searchParams: Promise<{ cuotas?: string }>;
 }) {
+
+  const searchParams = await props.searchParams;
+
   if (!searchParams.cuotas) {
     return (
       <div className="p-6 text-center text-gray-600">

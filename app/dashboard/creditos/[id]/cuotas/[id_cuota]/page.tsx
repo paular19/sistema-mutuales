@@ -12,17 +12,17 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { getCuotaDetalle } from "@/lib/queries/cuotas";
 
-export default async function CuotaDetallePage({
-  params,
-}: {
-  params: { id_cuota: string };
+export default async function CuotaDetallePage(props: {
+  params: Promise<{ id_cuota: string }>;
 }) {
-  const id_cuota = Number(params.id_cuota);
-  if (isNaN(id_cuota)) throw new Error("ID de cuota inválido.");
+  const { id_cuota } = await props.params;
 
-  const { cuota } = await getCuotaDetalle(id_cuota);
+  const idNum = Number(id_cuota);
+  if (isNaN(idNum)) throw new Error("ID de cuota inválido.");
+
+  const { cuota } = await getCuotaDetalle(idNum);
   if (!cuota) return <p className="text-red-500">Cuota no encontrada.</p>;
-
+  
   return (
     <div className="space-y-8">
       {/* Encabezado */}
