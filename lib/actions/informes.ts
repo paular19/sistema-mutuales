@@ -1,5 +1,5 @@
 // lib/actions/informes.ts
-"use server";
+
 
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
