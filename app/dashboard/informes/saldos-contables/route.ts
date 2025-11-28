@@ -1,4 +1,7 @@
 // app/informes/saldos-contables/route.ts
+export const runtime = "nodejs";
+export const preferredRegion = "iad1"; 
+
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";

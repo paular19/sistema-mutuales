@@ -1,9 +1,13 @@
+export const runtime = "nodejs";
+export const preferredRegion = "iad1"; 
+
 import { NextResponse } from "next/server";
 import { withRLS } from "@/lib/db/with-rls";
 import { generarReciboPDF } from "@/lib/utils/recibo";
 import { EstadoCuota, Prisma } from "@prisma/client";
 import { Buffer } from "node:buffer";
 import { getServerUser } from "@/lib/auth/get-server-user";
+
 
 type CuotaWithRelations = Prisma.CuotaGetPayload<{
   include: {
