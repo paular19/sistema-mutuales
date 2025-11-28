@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const preferredRegion = "iad1"; 
+
 import { exportInforme3688TxtAction } from "@/lib/actions/informes";
 
 export const dynamic = "force-dynamic";
