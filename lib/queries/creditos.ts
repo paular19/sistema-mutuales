@@ -58,7 +58,7 @@ export async function getCreditos(params: any = {}) {
         : {}),
     };
 
-    const [creditos, total] = await Promise.all([
+    const [rawCreditos, total] = await Promise.all([
       tx.credito.findMany({
         where,
         include: {
@@ -67,10 +67,19 @@ export async function getCreditos(params: any = {}) {
               nombre: true,
               apellido: true,
               razon_social: true,
-              tipo_persona: true
-            }
+              tipo_persona: true,
+            },
           },
           producto: { select: { nombre: true } },
+
+          // 🔥 TRAEMOS TODAS LAS CUOTAS, PERO SOLO LO NECESARIO
+          cuotas: {
+            select: {
+              estado: true,
+              monto_capital: true,
+              monto_interes: true,
+            },
+          },
         },
         orderBy: { fecha_creacion: "desc" },
         skip,
@@ -80,12 +89,21 @@ export async function getCreditos(params: any = {}) {
       tx.credito.count({ where }),
     ]);
 
-    // 🔥 Ajustar estado automáticamente
-    for (const c of creditos) {
-      if (c.cuotas_pendientes === 0) {
-        c.estado = "cancelado";
-      }
-    }
+    // 🔥 CALCULAMOS ACÁ EN JS
+    const creditos = rawCreditos.map((c: any) => {
+      const cuotasPagadas = c.cuotas.filter((q: any) => q.estado === "pagada")
+        .length;
+
+      const cuotasPendientes = c.cuotas.filter(
+        (q: any) => q.estado === "pendiente"
+      ).length;
+
+      return {
+        ...c,
+        cuotas_pagadas: cuotasPagadas,
+        cuotas_pendientes: cuotasPendientes,
+      };
+    });
 
     return {
       creditos,
@@ -96,7 +114,6 @@ export async function getCreditos(params: any = {}) {
     };
   });
 }
-
 
 
 /**
