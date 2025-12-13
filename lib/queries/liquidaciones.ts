@@ -123,32 +123,16 @@ export async function getLiquidacionById(id: number) {
   });
 }
 
-export async function getPreLiquidacionActual(filters?: {
-  search?: string;
-  producto?: string;
-}) {
+export async function getPreLiquidacionActual(filters?: { search?: string; producto?: string }) {
   const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
+  if (!info?.mutualId) throw new Error("Mutual no encontrada");
 
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
+  const hoy = new Date();
 
-    const periodoActual = await getPeriodoActual();
-
-    // 🔹 Si no hay configuración, devolver estado vacío seguro
-    if (!periodoActual.tieneConfiguracion) {
-      return {
-        filas: [],
-        total: 0,
-        proximoCierre: null,
-        sinConfiguracion: true,
-      };
-    }
-
-    const { proximoCierre } = periodoActual;
-
+  return withRLS(info.mutualId, info.userId, async prisma => {
     const cuotas = await prisma.cuota.findMany({
       where: {
-        fecha_vencimiento: { lte: proximoCierre! },
+        fecha_vencimiento: { lte: hoy },
         estado: { in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida] },
         credito: {
           estado: "activo",
@@ -167,13 +151,11 @@ export async function getPreLiquidacionActual(filters?: {
             : undefined,
         },
       },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-      },
+      include: { credito: { include: { asociado: true, producto: true } } },
       orderBy: { fecha_vencimiento: "asc" },
     });
 
-    const filas = cuotas.map((c) => ({
+    const filas = cuotas.map(c => ({
       id_cuota: c.id_cuota,
       asociado:
         c.credito.asociado.tipo_persona === "juridica"
@@ -190,11 +172,10 @@ export async function getPreLiquidacionActual(filters?: {
     return {
       filas,
       total: filas.reduce((acc, f) => acc + f.monto_total, 0),
-      proximoCierre,
-      sinConfiguracion: false,
     };
   });
 }
+
 
 
 

@@ -1,161 +1,64 @@
 "use server";
 
 import { withRLS } from "@/lib/db/with-rls";
-import { ConfiguracionCierreSchema } from "@/lib/validators/liquidaciones";
-import { addMonths, setDate } from "date-fns";
-import { $Enums } from "@prisma/client";
 import { getServerUser } from "../auth/get-server-user";
+import { $Enums } from "@prisma/client";
 
-/**
- * Devuelve el período actual en formato "YYYY-M"
- */
-function periodoFromDate(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth() + 1}`;
-}
-
-/**
- * Genera automáticamente la liquidación mensual si:
- *  - Hoy coincide con el día de cierre configurado
- *  - No existe aún una liquidación para este período
- *  - Arrastra cuotas impagas de la liquidación anterior
- */
-export async function generarLiquidacionSiCorresponde() {
+export async function generarLiquidacionManual() {
   const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
+  if (!info?.mutualId) throw new Error("Mutual no encontrada");
 
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
-    const config = await prisma.configuracionCierre.findFirst({
-      where: { activo: true },
-    });
+  const hoy = new Date();
+  const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
 
-    if (!config) return { generated: false, reason: "No hay configuración activa." };
+  return withRLS(info.mutualId, info.userId, async prisma => {
 
-    const hoy = new Date();
-    if (hoy.getDate() !== config.dia_cierre) {
-      return { generated: false, reason: "Hoy no es el día de cierre." };
-    }
-
-    const periodo = `${hoy.getFullYear()}-${hoy.getMonth() + 1}`;
-
-    const existente = await prisma.liquidacion.findFirst({
-      where: { periodo },
-    });
-
-    if (existente) {
-      return { generated: false, reason: "Ya existe liquidación del período." };
-    }
-
-    const cierreEsteMes = setDate(hoy, config.dia_cierre);
-    const proximoCierre = cierreEsteMes > hoy ? cierreEsteMes : addMonths(cierreEsteMes, 1);
-
-    const cuotasDelPeriodo = await prisma.cuota.findMany({
+    // 1️⃣ Buscar cuotas impagas hasta hoy
+    const cuotas = await prisma.cuota.findMany({
       where: {
-        fecha_vencimiento: { lte: proximoCierre },
+        fecha_vencimiento: { lte: hoy },
         estado: { in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida] },
-        credito: { estado: "activo" },
       },
-    });
-
-    const ultima = await prisma.liquidacion.findFirst({
-      orderBy: { fecha_cierre: "desc" },
       include: {
-        detalle: { include: { cuota: true } },
+        liquidacionDetalle: true,
+        credito: true,
+        pagoCuotas: true,
       },
     });
 
-    const cuotasArrastradas =
-      ultima?.detalle
-        .filter((d) => d.cuota.estado !== $Enums.EstadoCuota.pagada)
-        .map((d) => ({
-          id_cuota: d.id_cuota,
-          monto_liquidado: d.cuota.monto_total,
-        })) ?? [];
+    // 2️⃣ Determinar arrastre desde liquidaciones previas
+    const cuotasArrastradas = cuotas.filter(c =>
+      c.liquidacionDetalle.length > 0
+    );
 
-    const todas = [
-      ...cuotasArrastradas,
-      ...cuotasDelPeriodo.map((c) => ({
-        id_cuota: c.id_cuota,
-        monto_liquidado: c.monto_total,
-      })),
-    ];
+    const cuotasNuevas = cuotas.filter(c =>
+      c.liquidacionDetalle.length === 0
+    );
 
-    const unicas = Array.from(new Map(todas.map((c) => [c.id_cuota, c])).values());
+    const detalle = [...cuotasArrastradas, ...cuotasNuevas].map(c => ({
+      id_cuota: c.id_cuota,
+      monto_liquidado: c.monto_total,
+    }));
 
-    const total = unicas.reduce((acc, c) => acc + c.monto_liquidado, 0);
+    const total = detalle.reduce((acc, d) => acc + d.monto_liquidado, 0);
 
-    if (!config) {
-      return { generated: false, reason: "No hay configuración de cierre activa." };
-    }
-
-    const idMutual = info.mutualId!;
-    const idConfig = config.id_configuracion;
-
+    // 3️⃣ Crear liquidación
     const liquidacion = await prisma.liquidacion.create({
       data: {
-        id_mutual: idMutual,
-        id_configuracion: idConfig,
+        id_mutual: info.mutualId!,
         periodo,
         fecha_cierre: hoy,
         total_monto: total,
-        detalle: {
-          createMany: { data: unicas },
-        },
+        detalle: { createMany: { data: detalle } },
       },
     });
 
-
-    await prisma.configuracionCierre.update({
-      where: { id_configuracion: config.id_configuracion },
-      data: { ultima_liquidacion: hoy },
-    });
-
     return {
-      generated: true,
-      id: liquidacion.id_liquidacion,
+      success: true,
+      id_liquidacion: liquidacion.id_liquidacion,
       total,
-      nuevas: cuotasDelPeriodo.length,
-      arrastradas: cuotasArrastradas.length,
+      cuotasNuevas: cuotasNuevas.length,
+      cuotasArrastradas: cuotasArrastradas.length,
     };
   });
-}
-
-
-/**
- * Crea o actualiza la configuración de cierre (una por mutual).
- */
-export async function upsertConfiguracionCierre(prev: unknown, formData: FormData) {
-  const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada para RLS");
-
-  const parsed = ConfiguracionCierreSchema.safeParse({
-    dia_cierre: Number(formData.get("dia_cierre")),
-    activo: formData.get("activo") === "on" || formData.get("activo") === "true",
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.flatten().fieldErrors };
-  }
-
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
-  const existente = await prisma.configuracionCierre.findFirst();
-
-  const data = {
-    dia_cierre: parsed.data.dia_cierre,
-    activo: parsed.data.activo,
-  };
-
-  // Narrowing seguro
-  const idMutual = info.mutualId!;
-
-  const record = existente
-    ? await prisma.configuracionCierre.update({
-        where: { id_configuracion: existente.id_configuracion },
-        data,
-      })
-    : await prisma.configuracionCierre.create({
-        data: { ...data, id_mutual: idMutual },
-      });
-
-  return { success: true, record };
-});
 }

@@ -57,9 +57,6 @@ export function ProductosTable({ productos, pagination }: ProductosTableProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[200px]">Nombre</TableHead>
-                    <TableHead className="min-w-[80px] text-center">
-                      Cuotas
-                    </TableHead>
                     <TableHead className="min-w-[100px] text-center">
                       Tasa
                     </TableHead>
@@ -68,6 +65,9 @@ export function ProductosTable({ productos, pagination }: ProductosTableProps) {
                     </TableHead>
                     <TableHead className="min-w-[100px] text-center">
                       Créditos
+                    </TableHead>
+                    <TableHead className="min-w-[140px] text-center">
+                      Vencimientos
                     </TableHead>
                     <TableHead className="min-w-[120px] text-center">
                       Estado
@@ -86,9 +86,6 @@ export function ProductosTable({ productos, pagination }: ProductosTableProps) {
                     >
                       <TableCell className="font-medium">{p.nombre}</TableCell>
                       <TableCell className="text-center">
-                        {p.numero_cuotas}
-                      </TableCell>
-                      <TableCell className="text-center">
                         {p.tasa_interes}%
                       </TableCell>
                       <TableCell className="text-center">
@@ -97,6 +94,10 @@ export function ProductosTable({ productos, pagination }: ProductosTableProps) {
                       <TableCell className="text-center">
                         {p._count.creditos}
                       </TableCell>
+                      <TableCell className="text-center">
+                        Día {p.dia_vencimiento}
+                      </TableCell>
+
 
                       <TableCell className="text-center">
                         {p.activo ? (

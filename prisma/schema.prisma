@@ -49,7 +49,6 @@ model Mutual {
   productos             Producto[]
   tiposAsociado         TipoAsociado[]
   usuario               Usuario[]
-  configuracionesCierre ConfiguracionCierre[]
   cancelaciones         Cancelacion[]
   informes3688          Informe3688[]
 
@@ -118,7 +117,7 @@ model Producto {
   id_producto       Int              @id @default(autoincrement())
   id_mutual         Int
   nombre            String           @db.VarChar(100)
-  numero_cuotas     Int
+  numero_cuotas     Int?
   tasa_interes      Float
   fecha_creacion    DateTime         @default(now())
   dia_vencimiento   Int              @db.SmallInt
@@ -165,6 +164,8 @@ model Credito {
   dia_vencimiento   Int
   regla_vencimiento VencimientoRegla
   primera_venc      DateTime
+  codigo_externo Int? @unique
+
 
   @@index([id_asociado])
   @@index([id_producto])
@@ -195,7 +196,7 @@ model Cuota {
   pagoCuotas         PagoCuota[]
   liquidacionDetalle LiquidacionDetalle[]
 
-  @@unique([id_credito, numero_cuota])
+  @@unique([id_credito, numero_cuota, fecha_vencimiento, monto_total])
   @@map("cuotas")
 }
 
@@ -227,36 +228,18 @@ model PagoCuota {
   @@map("pago_cuotas")
 }
 
-model ConfiguracionCierre {
-  id_configuracion   Int       @id @default(autoincrement())
-  id_mutual          Int
-  dia_cierre         Int // 1..31
-  ultima_liquidacion DateTime?
-  activo             Boolean   @default(true)
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
-
-  mutual        Mutual?       @relation(fields: [id_mutual], references: [id_mutual])
-  liquidaciones Liquidacion[]
-
-  @@index([id_mutual])
-  @@map("configuraciones_cierre")
-}
 
 model Liquidacion {
   id_liquidacion   Int               @id @default(autoincrement())
   id_mutual        Int
-  id_configuracion Int
   periodo          String // "YYYY-M" (ej: "2025-10")
   fecha_cierre     DateTime
   total_monto      Float
   estado           EstadoLiquidacion @default(generada)
   fecha_creacion   DateTime          @default(now())
-
-  configuracion ConfiguracionCierre  @relation(fields: [id_configuracion], references: [id_configuracion])
   detalle       LiquidacionDetalle[]
 
-  @@unique([id_configuracion, periodo]) // una liquidación por config/mes
+  
   @@index([id_mutual, periodo])
   @@map("liquidaciones")
 }

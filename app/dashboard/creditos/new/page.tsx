@@ -2,6 +2,7 @@ import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
 import { createCredito } from "@/lib/actions/creditos";
 import { CreditoForm } from "@/components/creditos/credito-form";
+import { ImportHistoricosModal } from "@/components/creditos/import-historicos-modal";
 
 export default async function NewCreditoPage() {
   // 🔹 Obtener usuario + mutualId
@@ -43,6 +44,7 @@ export default async function NewCreditoPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Nuevo Crédito</h1>
+         <ImportHistoricosModal />
       </div>
 
       <CreditoForm

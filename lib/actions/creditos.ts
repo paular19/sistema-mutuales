@@ -47,81 +47,152 @@ export async function createCredito(formData: FormData) {
         return { error: "Faltan datos obligatorios." };
       }
 
-      // Producto (ya filtrado por RLS)
+      // Producto
       const producto = await tx.producto.findUnique({
         where: { id_producto },
       });
 
       if (!producto) return { error: "Producto no encontrado." };
 
-      // Cálculos
-      const intereses = monto * (producto.tasa_interes / 100);
-      const comision = monto * (producto.comision_comerc / 100);
+      /* 🔹 Cantidad de cuotas */
+      const rawNumeroCuotas = formData.get("numero_cuotas");
+      let numeroCuotas = rawNumeroCuotas
+        ? Number(rawNumeroCuotas)
+        : producto.numero_cuotas ?? 1;
+
+      if (!Number.isFinite(numeroCuotas) || numeroCuotas <= 0) {
+        numeroCuotas = 1;
+      }
+
+      /* ──────────────────────────────────────────────
+       *  🧮 Parámetros financieros
+       * ────────────────────────────────────────────── */
+
+      const hoy = new Date();
+
+      // tasa mensual en decimal (ej: 9.58 → 0.0958)
+      const tasaMensual = producto.tasa_interes / 100;
+
+      // tasa anual estándar (TNA) = mensual * 12
+      const tasaAnual = tasaMensual * 12;
+
+      const comisionPct = producto.comision_comerc / 100; // ej: 3 → 0.03
       const gestion = producto.comision_gestion ?? 0;
 
-      const saldoInicial = monto + intereses + comision;
-      const totalConGestion = saldoInicial + gestion;
+      const capitalPorCuota = monto / numeroCuotas;
 
+      // Primera fecha de vencimiento según regla de producto
       const primera_venc = primeraFechaVencimiento(
-        new Date(),
+        hoy,
         producto.dia_vencimiento,
         producto.regla_vencimiento
       );
 
-      // Generar cuotas
-      const cuotas = Array.from({ length: producto.numero_cuotas }, (_, i) => {
-        const fecha_venc = ajustarAlMes(
+      // Días entre fecha de otorgamiento (hoy) y primer vencimiento (ACT/360)
+      const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+      const primeraSinHora = new Date(
+        primera_venc.getFullYear(),
+        primera_venc.getMonth(),
+        primera_venc.getDate()
+      );
+      const msPorDia = 1000 * 60 * 60 * 24;
+      const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
+      const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
+
+      // Interés prorrateado para la PRIMERA cuota (sobre TODO el capital)
+      const interesProrrateado = monto * tasaAnual * (diasEntre / 360);
+
+      // Interés mensual "normal" para las cuotas siguientes (sobre TODO el capital)
+      const interesMensualNormal = capitalPorCuota * tasaMensual;
+
+
+      // Comisión aplicada al capital de CADA cuota…
+      const comisionPorCuota = capitalPorCuota * comisionPct;
+      // …pero acumulada ENTERA en la primera
+      const comisionTotal = comisionPorCuota * numeroCuotas;
+
+      /* ──────────────────────────────────────────────
+       *  🔢 Generación de cuotas
+       * ────────────────────────────────────────────── */
+      const cuotas: {
+        numero_cuota: number;
+        estado: EstadoCuota;
+        fecha_vencimiento: Date;
+        monto_capital: number;
+        monto_interes: number;
+        monto_total: number;
+      }[] = [];
+
+      for (let i = 0; i < numeroCuotas; i++) {
+        const fecha_vencimiento = ajustarAlMes(
           addMonths(primera_venc, i),
           producto.dia_vencimiento,
           producto.regla_vencimiento
         );
 
-        const monto_total =
-          saldoInicial / producto.numero_cuotas + (i === 0 ? gestion : 0);
+        const esPrimera = i === 0;
 
-        return {
+        const interes = esPrimera ? interesProrrateado : interesMensualNormal;
+        const comision = esPrimera ? comisionTotal : 0;
+        const extraGestion = esPrimera ? gestion : 0;
+
+        const monto_interes = interes + comision; // en el modelo no hay campo separado para comisión
+        const monto_total = capitalPorCuota + monto_interes + extraGestion;
+
+        cuotas.push({
           numero_cuota: i + 1,
           estado: EstadoCuota.pendiente,
-          fecha_vencimiento: fecha_venc,
-          monto_capital: monto / producto.numero_cuotas,
-          monto_interes: intereses / producto.numero_cuotas,
+          fecha_vencimiento,
+          monto_capital: capitalPorCuota,
+          monto_interes,
           monto_total,
-        };
-      });
+        });
+      }
 
-      // Crear crédito
+      // Saldo inicial = suma de todas las cuotas
+      const saldoInicial = cuotas.reduce(
+        (acc, c) => acc + c.monto_total,
+        0
+      );
+
+      /* ──────────────────────────────────────────────
+       *  💾 Crear crédito
+       * ────────────────────────────────────────────── */
       const credito = await tx.credito.create({
         data: {
           id_mutual: mutualId,
           id_asociado,
           id_producto,
-          monto,
-          tasa_interes: producto.tasa_interes,
-          numero_cuotas: producto.numero_cuotas,
+          monto, // capital original
+
+          tasa_interes: producto.tasa_interes,   // mensual, como cargás en producto
+          numero_cuotas: numeroCuotas,
           dia_vencimiento: producto.dia_vencimiento,
           regla_vencimiento: producto.regla_vencimiento,
           primera_venc,
+
           saldo_capital_inicial: saldoInicial,
           saldo_capital_actual: saldoInicial,
+
           cuotas_pagadas: 0,
-          cuotas_pendientes: producto.numero_cuotas,
+          cuotas_pendientes: numeroCuotas,
           estado: EstadoCredito.activo,
           observaciones,
           usuario_creacion: clerkId,
         },
       });
 
-      // 🔥 FIX: NO usar createMany() — crear cuotas UNA POR UNA
-      await Promise.all(
-        cuotas.map((c) =>
-          tx.cuota.create({
-            data: {
-              ...c,
-              id_credito: credito.id_credito,
-            },
-          })
-        )
-      );
+      /* ──────────────────────────────────────────────
+       *  💾 Crear cuotas
+       * ────────────────────────────────────────────── */
+      for (const c of cuotas) {
+        await tx.cuota.create({
+          data: {
+            ...c,
+            id_credito: credito.id_credito,
+          },
+        });
+      }
 
       return { success: true, id_credito: credito.id_credito };
     });
@@ -134,6 +205,15 @@ export async function createCredito(formData: FormData) {
 /* ──────────────────────────────────────────────
  *  🔹 IMPORTAR CRÉDITOS DESDE EXCEL
  * ────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────
+ *  🔹 IMPORTAR CRÉDITOS DESDE EXCEL (NUEVO)
+ *  ✔ Genera cuotas completas
+ *  ✔ Aplica interés mensual
+ *  ✔ Aplica comisión comercializadora por cuota
+ *  ✔ Gestión solo en la primera cuota
+ *  ✔ Saldo inicial correcto
+ * ────────────────────────────────────────────── */
+
 export async function importCreditosAction(formData: FormData) {
   const info = await getServerUser();
   if (!info) return { error: "Usuario no autenticado" };
@@ -160,16 +240,12 @@ export async function importCreditosAction(formData: FormData) {
         try {
           const nombre = row["nombre"]?.toString().trim();
           const apellido = row["apellido"]?.toString().trim();
-
-          // 📌 Identificador real según tu modelo
           const cuit = (
             row["cuit"] ||
             row["documento"] ||
             row["dni"] ||
             ""
-          )
-            .toString()
-            .trim();
+          ).toString().trim();
 
           const productoNombre = row["producto"]?.toString().trim();
           const monto = Number(row["monto"]);
@@ -183,13 +259,10 @@ export async function importCreditosAction(formData: FormData) {
           }
 
           /* ---------------------------------------------
-             ASOCIADO — buscar por CUIT (identificador real)
-          --------------------------------------------- */
+           *  ASOCIADO — buscar o crear
+           --------------------------------------------- */
           let asociado = await tx.asociado.findFirst({
-            where: {
-              cuit,
-              id_mutual: ctx.mutualId,
-            },
+            where: { cuit, id_mutual: ctx.mutualId },
             select: { id_asociado: true },
           });
 
@@ -209,13 +282,12 @@ export async function importCreditosAction(formData: FormData) {
               },
               select: { id_asociado: true },
             });
-
             asociadosNuevos++;
           }
 
           /* ---------------------------------------------
-             PRODUCTO
-          --------------------------------------------- */
+           *  PRODUCTO
+           --------------------------------------------- */
           const producto = await tx.producto.findFirst({
             where: {
               nombre: { contains: productoNombre, mode: "insensitive" },
@@ -232,37 +304,142 @@ export async function importCreditosAction(formData: FormData) {
           }
 
           /* ---------------------------------------------
-             GENERAR CRÉDITO
-          --------------------------------------------- */
+           *  CANTIDAD DE CUOTAS
+           --------------------------------------------- */
+          let numeroCuotas =
+            row["numero_cuotas"]
+              ? Number(row["numero_cuotas"])
+              : row["cuotas"]
+              ? Number(row["cuotas"])
+              : producto.numero_cuotas ?? 1;
+
+          numeroCuotas =
+            Number.isFinite(numeroCuotas) && numeroCuotas > 0
+              ? numeroCuotas
+              : 1;
+
+          /* ---------------------------------------------
+           *  CALCULOS FINANCIEROS (IGUAL QUE createCredito)
+           --------------------------------------------- */
+
+          const hoy = new Date();
+
+          const tasaMensual = producto.tasa_interes / 100;
+          const tasaAnual = tasaMensual * 12;
+
+          const comisionPct = producto.comision_comerc / 100;
+          const gestion = producto.comision_gestion ?? 0;
+
+          const capitalPorCuota = monto / numeroCuotas;
+
           const primera_venc = primeraFechaVencimiento(
-            new Date(),
+            hoy,
             producto.dia_vencimiento,
             producto.regla_vencimiento
           );
 
-          await tx.credito.create({
+          // días entre hoy y primer vencimiento
+          const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+          const primerSinHora = new Date(
+            primera_venc.getFullYear(),
+            primera_venc.getMonth(),
+            primera_venc.getDate()
+          );
+          const msPorDia = 1000 * 60 * 60 * 24;
+          const diasEntre = Math.max(
+            0,
+            Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia)
+          );
+
+          // interés prorrateado sobre TODO el capital
+          const interesProrrateado = monto * tasaAnual * (diasEntre / 360);
+
+          // interés mensual normal (sobre TODO el monto)
+          const interesMensualNormal = capitalPorCuota * tasaMensual;
+
+
+          // comisión (aplicada al capital por cuota, acumulada en la primera)
+          const comisionPorCuota = capitalPorCuota * comisionPct;
+          const comisionTotal = comisionPorCuota * numeroCuotas;
+
+          /* ---------------------------------------------
+           *  GENERAR CUOTAS
+           --------------------------------------------- */
+
+          const cuotas = [];
+
+          for (let c = 0; c < numeroCuotas; c++) {
+            const fecha_venc = ajustarAlMes(
+              addMonths(primera_venc, c),
+              producto.dia_vencimiento,
+              producto.regla_vencimiento
+            );
+
+            const esPrimera = c === 0;
+
+            const interes = esPrimera ? interesProrrateado : interesMensualNormal;
+            const comision = esPrimera ? comisionTotal : 0;
+            const extraGestion = esPrimera ? gestion : 0;
+
+            const monto_interes = interes + comision;
+            const monto_total = capitalPorCuota + monto_interes + extraGestion;
+
+            cuotas.push({
+              numero_cuota: c + 1,
+              estado: EstadoCuota.pendiente,
+              fecha_vencimiento: fecha_venc,
+              monto_capital: capitalPorCuota,
+              monto_interes,
+              monto_total,
+            });
+          }
+
+          const saldoInicial = cuotas.reduce(
+            (acc, q) => acc + q.monto_total,
+            0
+          );
+
+          /* ---------------------------------------------
+           *  CREAR CRÉDITO
+           --------------------------------------------- */
+          const credito = await tx.credito.create({
             data: {
               id_mutual: ctx.mutualId,
               id_asociado: asociado.id_asociado,
               id_producto: producto.id_producto,
               monto,
-              tasa_interes: producto.tasa_interes,
-              numero_cuotas: producto.numero_cuotas,
+
+              tasa_interes: producto.tasa_interes, // mensual  
+              numero_cuotas: numeroCuotas,
               dia_vencimiento: producto.dia_vencimiento,
               regla_vencimiento: producto.regla_vencimiento,
               primera_venc,
-              saldo_capital_inicial: monto,
-              saldo_capital_actual: monto,
+
+              saldo_capital_inicial: saldoInicial,
+              saldo_capital_actual: saldoInicial,
+
               cuotas_pagadas: 0,
-              cuotas_pendientes: producto.numero_cuotas,
+              cuotas_pendientes: numeroCuotas,
               estado: EstadoCredito.activo,
               usuario_creacion: ctx.clerkId,
             },
           });
 
+          /* ---------------------------------------------
+           *  CREAR CUOTAS UNA POR UNA
+           --------------------------------------------- */
+          for (const cu of cuotas) {
+            await tx.cuota.create({
+              data: {
+                ...cu,
+                id_credito: credito.id_credito,
+              },
+            });
+          }
+
           creados++;
-        } catch (e) {
-          console.error(e);
+        } catch (err) {
+          console.error(err);
           errores.push({
             fila: filaReal,
             mensaje: "Error inesperado procesando la fila",

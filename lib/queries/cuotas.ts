@@ -68,7 +68,7 @@ export async function getCuotasByCreditoId(
     const items = await tx.cuota.findMany({
       where: whereCuotas,
       include: { pagoCuotas: true },
-      orderBy: [{ numero_cuota: "asc" }],
+      orderBy: [{ fecha_vencimiento: "asc" }],
       skip,
       take: pageSize,
     });

@@ -7,6 +7,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { Settings, Clock } from "lucide-react";
 import { LiquidacionesPageClient } from "@/components/liquidacion/liquidaciones-page-client";
+import { generarLiquidacionManual } from "@/lib/actions/liquidaciones";
 
 interface SearchParams {
   search?: string;
@@ -24,7 +25,7 @@ export default async function LiquidacionesPage(props: {
   const limit = 10;
 
   // 🔹 Traemos las cuotas
-  const { filas, total, proximoCierre } =
+  const { filas, total} =
     await getPreLiquidacionActual(searchParams ?? {});
 
   const totalPages = Math.ceil(filas.length / limit) || 1;
@@ -40,29 +41,21 @@ export default async function LiquidacionesPage(props: {
           <p className="text-sm text-muted-foreground">
             Cuotas a cobrar del período actual
           </p>
-
-          {proximoCierre && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Mostrando cuotas con vencimiento hasta{" "}
-              <strong>{formatDate(proximoCierre)}</strong>.
-            </p>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link href="/dashboard/liquidaciones/configuracion">
-            <Button variant="outline" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Configuración
+          <form action={async () => { "use server"; await generarLiquidacionManual(); }}>
+            <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+              Generar liquidación del período
             </Button>
-          </Link>
+          </form>
 
-          <Link href="/dashboard/liquidaciones/historico">
+          {/* <Link href="/dashboard/liquidaciones/historico">
             <Button variant="default" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Ver histórico
             </Button>
-          </Link>
+          </Link> */}
         </div>
       </div>
 

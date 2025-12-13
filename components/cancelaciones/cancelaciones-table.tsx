@@ -39,18 +39,25 @@ export function CancelacionesTable({
         {tipo === "abonadas"
           ? "No hay cuotas abonadas en este período."
           : tipo === "impagas"
-            ? "No hay cuotas impagas en este período."
-            : "No hay datos disponibles."}
+          ? "No hay cuotas impagas en este período."
+          : "No hay datos disponibles."}
       </div>
     );
   }
+
+  // Función para manejar el estado de los checkboxes
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target;
+    // Aquí podrías almacenar las cuotas seleccionadas en el estado local o pasarlas a un formulario de acción
+    console.log(`Checkbox for cuota ${value} is ${checked ? 'checked' : 'unchecked'}`);
+  };
 
   return (
     <div className="space-y-6">
       {/* 📤 Importador Excel */}
       <CancelacionesImport />
 
-      {/* 📋 Tabla de cuotas abonadas */}
+      {/* 📋 Tabla de cuotas */}
       <div className="rounded-md border mt-2 overflow-auto shadow-sm">
         <Table className="min-w-[900px]">
           <TableHeader>
@@ -76,14 +83,27 @@ export function CancelacionesTable({
                 <TableCell>{f.producto}</TableCell>
                 <TableCell>{f.numero_credito}</TableCell>
                 <TableCell>{f.numero_cuota}</TableCell>
-                {formatDate(new Date(f.fecha_vencimiento))}
+                <TableCell>{formatDate(new Date(f.fecha_vencimiento))}</TableCell>
                 <TableCell className="text-right">
                   {formatCurrency(f.monto_total)}
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge className="bg-emerald-600 text-white">Pagada</Badge>
+                  {f.estado === EstadoCuota.pagada ? (
+                    <Badge className="bg-emerald-600 text-white">Pagada</Badge>
+                  ) : (
+                    <Badge className="bg-red-600 text-white">Pendiente</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
+                  {tipo === "impagas" && (
+                    <input
+                      type="checkbox"
+                      name="cuotas"
+                      value={f.id_cuota}
+                      onChange={handleCheckboxChange}
+                      className="mr-2"
+                    />
+                  )}
                   <Link href={`/dashboard/cuotas/${f.id_cuota}/detalle`}>
                     <Button size="sm" variant="outline">
                       Ver detalle

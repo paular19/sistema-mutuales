@@ -1,201 +1,108 @@
 "use server";
 
 import { withRLS } from "@/lib/db/with-rls";
-import { CancelacionFiltroSchema } from "@/lib/validators/cancelacion";
-import { startOfMonth, endOfMonth, setDate, addMonths } from "date-fns";
-import { $Enums } from "@prisma/client";
-import { format } from "date-fns";
-import { getConfiguracionCierre } from "./liquidaciones";
-import { getPeriodoActual } from "@/lib/queries/periodos";
 import { getServerUser } from "../auth/get-server-user";
+import { EstadoCuota } from "@prisma/client";
 
-/**
- * Devuelve cuotas abonadas y cuotas impagas dentro del período de liquidación.
- */
-export async function getCancelaciones(params: {
-  periodo?: string;
-  page?: number;
-  pageSize?: number;
-}) {
-  const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
-
-  const { periodo, page, pageSize } = CancelacionFiltroSchema.parse(params);
-
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
-    // 🔹 Rango
-    const [year, month] = periodo
-      ? periodo.split("-").map(Number)
-      : [new Date().getFullYear(), new Date().getMonth() + 1];
-
-    const desde = startOfMonth(new Date(year, month - 1));
-    const hasta = endOfMonth(new Date(year, month - 1));
-
-    // 🟢 PAGADAS
-    const cuotasPagadas = await prisma.cuota.findMany({
-      where: {
-        pagoCuotas: {
-          some: { fecha_pago: { gte: desde, lte: hasta } },
-        },
-      },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-        pagoCuotas: true,
-      },
-      orderBy: { fecha_vencimiento: "asc" },
-    });
-
-    // 🔴 IMPAGAS
-    const cuotasNoPagadas = await prisma.cuota.findMany({
-      where: {
-        fecha_vencimiento: { gte: desde, lte: hasta },
-        estado: {
-          in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida],
-        },
-        pagoCuotas: { none: {} },
-      },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-      },
-      orderBy: { fecha_vencimiento: "asc" },
-    });
-
-    // Paginación local
-    const totalPagadas = cuotasPagadas.length;
-    const totalNoPagadas = cuotasNoPagadas.length;
-
-    return {
-      periodo: `${year}-${month}`,
-      pagadas: cuotasPagadas.slice((page - 1) * pageSize, page * pageSize),
-      noPagadas: cuotasNoPagadas.slice((page - 1) * pageSize, page * pageSize),
-      pagination: {
-        page,
-        pageSize,
-        pages: Math.max(
-          Math.ceil(
-            Math.max(totalPagadas, totalNoPagadas) / pageSize
-          ),
-          1
-        ),
-      },
-    };
-  });
-}
-
-export async function getCancelacionesDelPeriodo() {
+/* ────────────────────────────────────────────────────────────────
+   🟢 1. Cancelaciones basadas en la ÚLTIMA LIQUIDACIÓN
+------------------------------------------------------------------- */
+export async function getCancelacionesDelDia() {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
 
   return withRLS(info.mutualId, info.userId, async (prisma) => {
-    const config = await getConfiguracionCierre();
+    // 🟦 Obtener última liquidación con todos sus detalles
+    const liquidacion = await prisma.liquidacion.findFirst({
+      where: { id_mutual: info.mutualId! },
+      orderBy: { fecha_cierre: "desc" },
+      include: {
+        detalle: {
+          include: {
+            cuota: {
+              include: {
+                pagoCuotas: true,
+                credito: {
+                  include: {
+                    asociado: true,
+                    producto: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
-    // 🔹 NO ROMPER SI NO HAY CONFIGURACIÓN
-    if (!config) {
+    // Si no existe liquidación → devolvemos vacío
+    if (!liquidacion || !liquidacion.detalle) {
       return {
-        tieneConfiguracion: false,
-        cuotas: [],
-        total: 0,
-        proximoCierre: null,
-        periodo: null
+        periodo: null,
+        cuotasPagadas: [],
+        cuotasPendientes: [],
+        totalPagadas: 0,
+        totalPendientes: 0,
       };
     }
 
-    const hoy = new Date();
-    const cierre = setDate(hoy, config.dia_cierre);
-    const proximoCierre = cierre > hoy ? cierre : addMonths(cierre, 1);
+    const periodo = liquidacion.periodo;
 
-    const cuotas = await prisma.cuota.findMany({
-      where: {
-        fecha_vencimiento: { lte: proximoCierre },
-        estado: $Enums.EstadoCuota.pagada,
-        credito: { estado: "activo" },
-      },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-        pagoCuotas: true,
-      },
-      orderBy: { fecha_vencimiento: "asc" },
-    });
+    // Transformar cuotas
+    const cuotas = liquidacion.detalle.map((d) => {
+      const c = d.cuota;
 
-    const filas = cuotas.map((c) => ({
-      id_cuota: c.id_cuota,
-      asociado:
+      const totalPagado = c.pagoCuotas.reduce(
+        (acc: number, p: any) => acc + p.monto_pagado,
+        0
+      );
+
+      const pendiente = c.monto_total - totalPagado;
+
+      const asociado =
         c.credito.asociado.tipo_persona === "juridica"
           ? c.credito.asociado.razon_social
-          : `${c.credito.asociado.apellido ?? ""}, ${c.credito.asociado.nombre ?? ""}`,
-      producto: c.credito.producto.nombre,
-      numero_credito: c.credito.id_credito,
-      numero_cuota: c.numero_cuota,
-      fecha_vencimiento: c.fecha_vencimiento,
-      monto_total: c.monto_total,
-      estado: c.estado,
-    }));
+          : `${c.credito.asociado.apellido ?? ""}, ${c.credito.asociado.nombre ?? ""}`.trim();
 
-    const total = filas.reduce((acc, f) => acc + f.monto_total, 0);
+      return {
+        id_cuota: c.id_cuota,
+        asociado,
+        producto: c.credito.producto.nombre,
+        numero_credito: c.credito.id_credito,
+        numero_cuota: c.numero_cuota,
+        fecha_vencimiento: c.fecha_vencimiento,
+        monto_total: c.monto_total,
+        estado: pendiente <= 0 ? EstadoCuota.pagada : EstadoCuota.pendiente,
+      };
+    });
+
+    // Separar pagadas y pendientes
+    const cuotasPagadas = cuotas.filter((c) => c.estado === EstadoCuota.pagada);
+    const cuotasPendientes = cuotas.filter((c) => c.estado !== EstadoCuota.pagada);
 
     return {
-      tieneConfiguracion: true,
-      periodo: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`,
-      cuotas: filas,
-      total,
-      proximoCierre,
+      periodo,
+      cuotasPagadas,
+      cuotasPendientes,
+      totalPagadas: cuotasPagadas.reduce((acc: number, c) => acc + c.monto_total, 0),
+      totalPendientes: cuotasPendientes.reduce(
+        (acc: number, c) => acc + c.monto_total,
+        0
+      ),
     };
   });
 }
 
-
-/**
- * Obtiene cuotas pagadas e impagas correspondientes al período en curso
- * (hasta el próximo cierre definido en configuración).
- */
-export async function getCancelacionesEnCurso() {
-  const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
-
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
-    const config = await getConfiguracionCierre();
-    if (!config) throw new Error("No hay configuración de cierre activa.");
-
-    const hoy = new Date();
-    const cierre = setDate(hoy, config.dia_cierre);
-    const proximoCierre = cierre > hoy ? cierre : addMonths(cierre, 1);
-
-    const cuotasPagadas = await prisma.cuota.findMany({
-      where: {
-        fecha_vencimiento: { lte: proximoCierre },
-        estado: $Enums.EstadoCuota.pagada,
-      },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-        pagoCuotas: true,
-      },
-    });
-
-    const cuotasImpagas = await prisma.cuota.findMany({
-      where: {
-        fecha_vencimiento: { lte: proximoCierre },
-        estado: {
-          in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida],
-        },
-      },
-      include: {
-        credito: { include: { asociado: true, producto: true } },
-      },
-    });
-
-    return { cuotasPagadas, cuotasImpagas, proximoCierre };
-  });
-}
-
-/**
- * Devuelve todas las cancelaciones registradas (para vista histórica)
- */
+/* ────────────────────────────────────────────────────────────────
+   🟢 2. Historial de cancelaciones
+------------------------------------------------------------------- */
 export async function getHistorialCancelaciones() {
   const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
+  if (!info?.mutualId) throw new Error("Mutual no detectada");
 
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
+  return withRLS(info.mutualId, info.userId, async prisma => {
     return prisma.cancelacion.findMany({
+      where: { id_mutual: info.mutualId },
       orderBy: { fecha_registro: "desc" },
       select: {
         id_cancelacion: true,
@@ -206,61 +113,37 @@ export async function getHistorialCancelaciones() {
   });
 }
 
-/**
- * Devuelve el detalle de cuotas abonadas e impagas de un período histórico.
- */
+/* ────────────────────────────────────────────────────────────────
+   🟢 3. Detalle de un período histórico
+------------------------------------------------------------------- */
 export async function getCancelacionByPeriodo(periodo: string) {
   const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada (RLS)");
+  if (!info?.mutualId) throw new Error("Mutual no detectada");
 
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
+  const idMutual = info.mutualId;
+
+  return withRLS(idMutual, info.userId, async prisma => {
+    
+    const liquidacion = await prisma.liquidacion.findFirst({
+      where: { periodo, id_mutual: idMutual },
+      include: { detalle: true },
+    });
+
+    if (!liquidacion) return null;
+
+    const ids = liquidacion.detalle.map(d => d.id_cuota);
+
     const cuotas = await prisma.cuota.findMany({
-      where: { credito: { estado: "activo" } },
+      where: { id_cuota: { in: ids } },
       include: {
         credito: { include: { asociado: true, producto: true } },
         pagoCuotas: true,
       },
+      orderBy: { numero_cuota: "asc" },
     });
 
-    const abonadas = cuotas
-      .filter(
-        (c) =>
-          c.pagoCuotas.some((p) => p.fecha_pago.toISOString().slice(0, 7) === periodo) &&
-          c.estado === "pagada"
-      )
-      .map((c) => ({
-        id_cuota: c.id_cuota,
-        asociado:
-          c.credito.asociado.tipo_persona === "juridica"
-            ? c.credito.asociado.razon_social
-            : `${c.credito.asociado.apellido ?? ""}, ${c.credito.asociado.nombre ?? ""}`,
-        producto: c.credito.producto.nombre,
-        numero_credito: c.credito.id_credito,
-        numero_cuota: c.numero_cuota,
-        fecha_vencimiento: c.fecha_vencimiento,
-        monto_total: c.monto_total,
-        estado: c.estado,
-      }));
-
-    const impagas = cuotas
-      .filter(
-        (c) =>
-          c.fecha_vencimiento.toISOString().slice(0, 7) === periodo &&
-          c.estado !== "pagada"
-      )
-      .map((c) => ({
-        id_cuota: c.id_cuota,
-        asociado:
-          c.credito.asociado.tipo_persona === "juridica"
-            ? c.credito.asociado.razon_social
-            : `${c.credito.asociado.apellido ?? ""}, ${c.credito.asociado.nombre ?? ""}`,
-        producto: c.credito.producto.nombre,
-        numero_credito: c.credito.id_credito,
-        numero_cuota: c.numero_cuota,
-        fecha_vencimiento: c.fecha_vencimiento,
-        monto_total: c.monto_total,
-        estado: c.estado,
-      }));
+    const abonadas = cuotas.filter(c => c.estado === "pagada");
+    const impagas = cuotas.filter(c => c.estado !== "pagada");
 
     return {
       periodo,

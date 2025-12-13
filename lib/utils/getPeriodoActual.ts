@@ -1,26 +1,17 @@
-// lib/utils/getPeriodoActual.ts
-import { getConfiguracionCierre } from "@/lib/queries/liquidaciones";
-import { addMonths } from "date-fns";
+"use server";
 
-/**
- * Calcula el período (YYYY-MM) en curso según el día de cierre configurado.
- * Si el día de cierre del mes ya pasó, se considera el próximo mes.
- */
-export async function getPeriodoActual(): Promise<string> {
-  const config = await getConfiguracionCierre();
-  if (!config) return "—";
+import { getServerUser } from "../auth/get-server-user";
+import { withRLS } from "@/lib/db/with-rls";
 
+export async function getPeriodoActual() {
   const hoy = new Date();
-  const diaCierre = config.dia_cierre;
 
-  // Creamos una fecha con el día de cierre de este mes
-  const cierreEsteMes = new Date(hoy.getFullYear(), hoy.getMonth(), diaCierre);
+  const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
 
-  // Si hoy ya es posterior al día de cierre, usamos el mes siguiente
-  const periodoFecha = hoy > cierreEsteMes ? addMonths(hoy, 1) : hoy;
-
-  const year = periodoFecha.getFullYear();
-  const month = String(periodoFecha.getMonth() + 1).padStart(2, "0");
-
-  return `${year}-${month}`;
+  return {
+    periodo,
+    fecha: hoy,
+    proximoCierre: null,       // ya no existe concepto de cierre
+    tieneConfiguracion: false, // siempre false porque ya no hay configuraciones
+  };
 }
