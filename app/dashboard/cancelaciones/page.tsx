@@ -1,8 +1,11 @@
-import { getCancelacionesDelDia } from "@/lib/queries/cancelacion";
-import { cobrarCuotasSeleccionadas, registrarCancelacion } from "@/lib/actions/cancelacion";
-import { getPeriodoActual } from "@/lib/utils/getPeriodoActual";
-import { revalidatePath } from "next/cache";
+import { getCancelacionDesdeLiquidacion } from "@/lib/queries/cancelacion";
+import {
+  cobrarCuotasDesdeCancelacion,
+  cerrarCancelacion,
+} from "@/lib/actions/cancelacion";
+
 import { CancelacionesTable } from "@/components/cancelaciones/cancelaciones-table";
+import { CancelacionesImport } from "@/components/cancelaciones/cancelaciones-import";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
@@ -10,20 +13,31 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils/format";
 
 export default async function CancelacionesPage() {
-  const {
-    periodo,
-    cuotasPagadas,
-    cuotasPendientes,
-    totalPagadas,
-    totalPendientes,
-  } = await getCancelacionesDelDia();
+  const data = await getCancelacionDesdeLiquidacion();
 
-  const periodoActual = await getPeriodoActual();
+  if (!data) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-3xl font-bold tracking-tight">Cancelaciones</h1>
+        <p className="text-sm text-muted-foreground">
+          No hay una liquidación en estado <strong>generada</strong> o{" "}
+          <strong>revisada</strong> para reflejar.
+        </p>
+      </div>
+    );
+  }
 
-  async function handleRegistrarCancelacion() {
+  const { periodo, liquidacionId, cuotasPagadas, cuotasPendientes, totalPagadas, totalPendientes } =
+    data;
+
+  async function handleCobrar(formData: FormData) {
     "use server";
-    await registrarCancelacion(periodoActual.periodo);
-    revalidatePath("/dashboard/cancelaciones");
+    return cobrarCuotasDesdeCancelacion(liquidacionId, formData);
+  }
+
+  async function handleCerrar() {
+    "use server";
+    return cerrarCancelacion(periodo, liquidacionId);
   }
 
   return (
@@ -45,9 +59,17 @@ export default async function CancelacionesPage() {
             </Button>
           </Link>
 
-          <form action={handleRegistrarCancelacion}>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              Registrar período {periodoActual.periodo}
+          <form action={handleCerrar}>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={cuotasPendientes.length > 0}
+              title={
+                cuotasPendientes.length > 0
+                  ? "Primero cobrá todas las cuotas pendientes"
+                  : ""
+              }
+            >
+              Registrar cierre período {periodo}
             </Button>
           </form>
         </div>
@@ -57,9 +79,12 @@ export default async function CancelacionesPage() {
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Cuotas pendientes de cobro</h2>
 
+        {/* ✅ Importador solo UNA VEZ (no dentro de la tabla) */}
+        <CancelacionesImport />
+
         <Card>
           <CardContent className="pt-6">
-            <form action={cobrarCuotasSeleccionadas} className="space-y-6">
+            <form action={handleCobrar} className="space-y-6">
               <CancelacionesTable filas={cuotasPendientes} tipo="impagas" />
 
               {cuotasPendientes.length > 0 && (

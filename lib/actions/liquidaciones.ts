@@ -1,64 +1,75 @@
 "use server";
 
 import { withRLS } from "@/lib/db/with-rls";
-import { getServerUser } from "../auth/get-server-user";
-import { $Enums } from "@prisma/client";
+import { getServerUser } from "@/lib/auth/get-server-user";
+import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
-export async function generarLiquidacionManual() {
+export async function generarLiquidacion() {
   const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no encontrada");
+  if (!info?.mutualId) throw new Error("Mutual no detectada");
 
   const hoy = new Date();
   const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
 
-  return withRLS(info.mutualId, info.userId, async prisma => {
-
-    // 1️⃣ Buscar cuotas impagas hasta hoy
-    const cuotas = await prisma.cuota.findMany({
+  return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
+    // 🔴 Cuotas vencidas
+    const vencidas = await tx.cuota.findMany({
       where: {
+        estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
         fecha_vencimiento: { lte: hoy },
-        estado: { in: [$Enums.EstadoCuota.pendiente, $Enums.EstadoCuota.vencida] },
-      },
-      include: {
-        liquidacionDetalle: true,
-        credito: true,
-        pagoCuotas: true,
       },
     });
 
-    // 2️⃣ Determinar arrastre desde liquidaciones previas
-    const cuotasArrastradas = cuotas.filter(c =>
-      c.liquidacionDetalle.length > 0
-    );
+    // 🔁 Cuotas arrastradas (liquidaciones NO cerradas)
+    const arrastradas = await tx.cuota.findMany({
+      where: {
+        estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        liquidacionDetalle: {
+          some: {
+            liquidacion: {
+              estado: { not: EstadoLiquidacion.cerrada },
+            },
+          },
+        },
+      },
+    });
 
-    const cuotasNuevas = cuotas.filter(c =>
-      c.liquidacionDetalle.length === 0
-    );
+    const map = new Map<number, typeof vencidas[number]>();
+    [...vencidas, ...arrastradas].forEach(c => map.set(c.id_cuota, c));
+    const cuotas = Array.from(map.values());
 
-    const detalle = [...cuotasArrastradas, ...cuotasNuevas].map(c => ({
-      id_cuota: c.id_cuota,
-      monto_liquidado: c.monto_total,
-    }));
+    if (!cuotas.length) {
+      return { error: "No hay cuotas para liquidar." };
+    }
 
-    const total = detalle.reduce((acc, d) => acc + d.monto_liquidado, 0);
+    const total = cuotas.reduce((a, c) => a + c.monto_total, 0);
 
-    // 3️⃣ Crear liquidación
-    const liquidacion = await prisma.liquidacion.create({
+    const liquidacion = await tx.liquidacion.create({
       data: {
-        id_mutual: info.mutualId!,
+        id_mutual: ctx.mutualId, // ✅
         periodo,
         fecha_cierre: hoy,
         total_monto: total,
-        detalle: { createMany: { data: detalle } },
+        estado: EstadoLiquidacion.generada,
+        detalle: {
+          createMany: {
+            data: cuotas.map(c => ({
+              id_cuota: c.id_cuota,
+              monto_liquidado: c.monto_total,
+            })),
+          },
+        },
       },
     });
+
+    revalidatePath("/dashboard/liquidaciones");
 
     return {
       success: true,
       id_liquidacion: liquidacion.id_liquidacion,
+      cuotas: cuotas.length,
       total,
-      cuotasNuevas: cuotasNuevas.length,
-      cuotasArrastradas: cuotasArrastradas.length,
     };
   });
 }

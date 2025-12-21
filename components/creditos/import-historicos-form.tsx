@@ -1,43 +1,58 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { importHistoricosCreditosAction } from "@/lib/actions/import-historicos-creditos";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+type ImportHistoricosResult =
+  | {
+      ok: true;
+      creditosCreados: number;
+      cuotasCreadas: number;
+      cuotasIgnoradas: number;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
 export function ImportHistoricosForm() {
   const [isImporting, setIsImporting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsImporting(true);
 
-    const formData = new FormData(e.currentTarget);
-    const result = await importHistoricosCreditosAction(formData);
+    try {
+      const formData = new FormData(e.currentTarget);
+      const result = (await importHistoricosCreditosAction(
+        formData
+      )) as ImportHistoricosResult;
 
-    setIsImporting(false);
+      if (!result.ok) {
+        toast.error("Error al importar", {
+          description: result.error || "Error desconocido",
+        });
+        return;
+      }
 
-    if (!result.ok) {
-      const errorMsg =
-        "error" in result
-          ? result.error
-          : result.errores?.join("\n") ?? "Error desconocido";
-
-      toast.error("Error al importar", {
-        description: errorMsg,
-      });
-
-      return;
-    }
-
-    if ("creditosCreados" in result && "cuotasCreadas" in result) {
       toast.success("Importación completada", {
-        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas}`,
+        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas} | Ignoradas: ${result.cuotasIgnoradas}`,
       });
+
+      e.currentTarget.reset();
+    } catch (err) {
+      console.error(err);
+      toast.error("Error al importar", {
+        description: "Error inesperado al procesar el archivo",
+      });
+    } finally {
+      setIsImporting(false);
     }
   }
 
-  // ⬇️ JSX debe ir FUERA de handleSubmit
   return (
     <form
       onSubmit={handleSubmit}
@@ -50,6 +65,7 @@ export function ImportHistoricosForm() {
         name="file"
         accept=".xlsx,.xls"
         required
+        disabled={isImporting}
         className="block text-sm"
       />
 

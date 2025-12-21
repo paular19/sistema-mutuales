@@ -6,21 +6,26 @@ import { toast } from "sonner";
 import { FileSpreadsheet, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { importCancelacionesAction } from "@/lib/actions/cancelacion";
 import { useRouter } from "next/navigation";
+import type { FormEvent } from "react";
 
+type ImportResult =
+  | { success: false; error: string }
+  | { success: true; procesadas: number; cuotasPagadas: number };
 
 export function CancelacionesImport() {
   const [isImporting, setIsImporting] = useState(false);
   const router = useRouter();
 
-  async function handleImport(e: React.FormEvent<HTMLFormElement>) {
+  async function handleImport(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsImporting(true);
 
     try {
       const formData = new FormData(e.currentTarget);
-      const result = await importCancelacionesAction(formData);
 
-      if (result?.error) {
+      const result = (await importCancelacionesAction(formData)) as ImportResult;
+
+      if (!result.success) {
         toast.error("Error al importar cancelaciones", {
           description: result.error,
           icon: <XCircle className="text-red-500 w-5 h-5" />,
@@ -34,7 +39,7 @@ export function CancelacionesImport() {
       }
 
       e.currentTarget.reset();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error("Error inesperado al procesar el archivo");
     } finally {
