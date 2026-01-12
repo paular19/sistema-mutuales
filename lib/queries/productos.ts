@@ -84,8 +84,9 @@ export async function getProductosOptions() {
       select: {
         id_producto: true,
         nombre: true,
-        numero_cuotas: true,
         tasa_interes: true,
+        comision_comerc: true,
+        comision_gestion: true,
         dia_vencimiento: true,
         regla_vencimiento: true,
       },

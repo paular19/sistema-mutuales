@@ -2,12 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 
 enum EstadoCredito {
   activo
@@ -39,18 +37,18 @@ enum VencimientoRegla {
 }
 
 model Mutual {
-  id_mutual             Int                   @id @default(autoincrement())
-  nombre                String                @db.VarChar(50)
-  cuit                  String?               @db.VarChar(20)
-  estado                Boolean               @default(true)
-  asociados             Asociado[]
-  creditos     Credito[]
-  pagos                 Pago[]
-  productos             Producto[]
-  tiposAsociado         TipoAsociado[]
-  usuario               Usuario[]
-  cancelaciones         Cancelacion[]
-  informes3688          Informe3688[]
+  id_mutual     Int            @id @default(autoincrement())
+  nombre        String         @db.VarChar(50)
+  cuit          String?        @db.VarChar(20)
+  estado        Boolean        @default(true)
+  asociados     Asociado[]
+  creditos      Credito[]
+  pagos         Pago[]
+  productos     Producto[]
+  tiposAsociado TipoAsociado[]
+  usuario       Usuario[]
+  cancelaciones Cancelacion[]
+  informes3688  Informe3688[]
 
   @@map("mutuales")
 }
@@ -117,12 +115,11 @@ model Producto {
   id_producto       Int              @id @default(autoincrement())
   id_mutual         Int
   nombre            String           @db.VarChar(100)
-  numero_cuotas     Int?
   tasa_interes      Float
   fecha_creacion    DateTime         @default(now())
   dia_vencimiento   Int              @db.SmallInt
   regla_vencimiento VencimientoRegla @default(AJUSTAR_ULTIMO_DIA)
-  comision_comerc   Float            @default(0)
+  comision_comerc   Float            @default(7)
   comision_gestion  Float?           @default(0)
   creditos          Credito[]
   mutual            Mutual           @relation(fields: [id_mutual], references: [id_mutual])
@@ -134,7 +131,7 @@ model Producto {
 }
 
 model Credito {
-  id_mutual       Int
+  id_mutual             Int
   id_credito            Int           @id @default(autoincrement())
   id_asociado           Int
   id_producto           Int
@@ -157,15 +154,14 @@ model Credito {
   asociado Asociado @relation(fields: [id_asociado], references: [id_asociado])
   producto Producto @relation(fields: [id_producto], references: [id_producto])
   cuotas   Cuota[]
-  mutual          Mutual     @relation(fields: [id_mutual], references: [id_mutual])
+  mutual   Mutual   @relation(fields: [id_mutual], references: [id_mutual])
 
   tasa_interes      Float
   numero_cuotas     Int
   dia_vencimiento   Int
   regla_vencimiento VencimientoRegla
   primera_venc      DateTime
-  codigo_externo Int? @unique
-
+  codigo_externo    Int?             @unique
 
   @@index([id_asociado])
   @@index([id_producto])
@@ -228,18 +224,16 @@ model PagoCuota {
   @@map("pago_cuotas")
 }
 
-
 model Liquidacion {
-  id_liquidacion   Int               @id @default(autoincrement())
-  id_mutual        Int
-  periodo          String // "YYYY-M" (ej: "2025-10")
-  fecha_cierre     DateTime
-  total_monto      Float
-  estado           EstadoLiquidacion @default(generada)
-  fecha_creacion   DateTime          @default(now())
-  detalle       LiquidacionDetalle[]
+  id_liquidacion Int                  @id @default(autoincrement())
+  id_mutual      Int
+  periodo        String // "YYYY-M" (ej: "2025-10")
+  fecha_cierre   DateTime
+  total_monto    Float
+  estado         EstadoLiquidacion    @default(generada)
+  fecha_creacion DateTime             @default(now())
+  detalle        LiquidacionDetalle[]
 
-  
   @@index([id_mutual, periodo])
   @@map("liquidaciones")
 }

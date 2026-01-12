@@ -5,10 +5,6 @@ export const ProductoSchema = z.object({
     .min(1, "El nombre es requerido")
     .max(100, "El nombre no puede exceder 100 caracteres"),
 
-  numero_cuotas: z.number()
-    .int("El número de cuotas debe ser entero")
-    .min(1, "Debe tener al menos 1 cuota")
-    .max(360, "El máximo son 360 cuotas"),
 
   tasa_interes: z.number()
     .min(0, "La tasa de interés no puede ser negativa")
@@ -26,11 +22,11 @@ export const ProductoSchema = z.object({
   comision_comerc: z.number()
     .min(0, "La comisión no puede ser negativa")
     .max(100, "La comisión no puede exceder 100%")
-    .default(0),
+    .default(3),
 
   comision_gestion: z.number()
     .min(0, "La comisión no puede ser negativa")
-    .default(0),
+    .default(7),
 });
 
 export type ProductoFormData = z.infer<typeof ProductoSchema>;

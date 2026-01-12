@@ -20,7 +20,6 @@ interface AsociadoOption {
 interface ProductoOption {
   id_producto: number;
   nombre: string;
-  numero_cuotas: number | null;
   tasa_interes: number;
   comision_comerc: number;
   dia_vencimiento: number;
@@ -60,8 +59,10 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       monto: Number(monto),
       cuotas: Number(cantidadCuotas),
       tasaMensual: productoSeleccionado.tasa_interes,
-      comisionPct: productoSeleccionado.comision_comerc,
-      gestion: productoSeleccionado.comision_gestion,
+      // comisionPct = comercializadora pct (por cuota)
+      comisionPct: productoSeleccionado.comision_comerc ?? 3,
+      // gestionPct = porcentaje de gestión aplicado al monto inicial
+      gestionPct: productoSeleccionado.comision_gestion ?? 7,
       diaVencimiento: productoSeleccionado.dia_vencimiento,
       reglaVencimiento: productoSeleccionado.regla_vencimiento,
     });
@@ -174,10 +175,12 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
           <p>🗓 <strong>Días hasta primer vencimiento:</strong> {calculo.diasEntre}</p>
 
           <p>💵 <strong>Capital por cuota:</strong> ${calculo.capitalPorCuota.toFixed(2)}</p>
+          <p>💵 <strong>Monto inicial:</strong> ${Number(monto).toFixed(2)}</p>
+          <p>💵 <strong>Monto final (+{productoSeleccionado?.comision_gestion ?? 7}%):</strong> ${calculo.montoFinal.toFixed(2)}</p>
 
           <p>📈 <strong>Interés prorrateado 1° cuota:</strong> ${calculo.interesProrrateado.toFixed(2)}</p>
 
-          <p>💼 <strong>Comisión total (1° cuota):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
+          <p>💼 <strong>Comisión de gestión total (aplicada al inicio):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
 
           <p className="text-blue-700 font-semibold">
             🔵 Primera cuota: ${calculo.primeraCuota.toFixed(2)}

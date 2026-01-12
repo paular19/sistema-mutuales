@@ -380,7 +380,6 @@ export async function importHistoricosCreditosAction(formData: FormData) {
       data: {
         id_mutual: mutualId,
         nombre,
-        numero_cuotas: first.cancuo || 1,
         tasa_interes: 0,
         dia_vencimiento: first.fechaven?.getDate() ?? 1,
         regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,

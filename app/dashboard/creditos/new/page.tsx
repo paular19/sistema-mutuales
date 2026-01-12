@@ -26,7 +26,6 @@ export default async function NewCreditoPage() {
         select: {
           id_producto: true,
           nombre: true,
-          numero_cuotas: true,
           tasa_interes: true,
           comision_comerc: true,
           dia_vencimiento: true,
@@ -44,7 +43,7 @@ export default async function NewCreditoPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Nuevo Crédito</h1>
-         <ImportHistoricosModal />
+        <ImportHistoricosModal />
       </div>
 
       <CreditoForm

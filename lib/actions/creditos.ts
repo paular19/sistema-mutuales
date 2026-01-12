@@ -56,9 +56,7 @@ export async function createCredito(formData: FormData) {
 
       /* 🔹 Cantidad de cuotas */
       const rawNumeroCuotas = formData.get("numero_cuotas");
-      let numeroCuotas = rawNumeroCuotas
-        ? Number(rawNumeroCuotas)
-        : producto.numero_cuotas ?? 1;
+      let numeroCuotas = rawNumeroCuotas ? Number(rawNumeroCuotas) : 1;
 
       if (!Number.isFinite(numeroCuotas) || numeroCuotas <= 0) {
         numeroCuotas = 1;
@@ -76,10 +74,15 @@ export async function createCredito(formData: FormData) {
       // tasa anual estándar (TNA) = mensual * 12
       const tasaAnual = tasaMensual * 12;
 
-      const comisionPct = producto.comision_comerc / 100; // ej: 3 → 0.03
-      const gestion = producto.comision_gestion ?? 0;
+      // comisión de gestión (porcentaje) aplicada al monto inicial. Por defecto 7% si no está definida
+      const gestionPct = producto.comision_gestion && producto.comision_gestion > 0 ? producto.comision_gestion : 7;
+      // comisión de la comercializadora (porcentaje) que se descuenta por cuota. Por defecto 3% si no está definida
+      const comercializadoraPct = producto.comision_comerc && producto.comision_comerc > 0 ? producto.comision_comerc : 3;
 
-      const capitalPorCuota = monto / numeroCuotas;
+      // Monto final sobre el que se aplicarán los intereses = monto inicial + comisión de gestión
+      const adjustedMonto = monto * (1 + gestionPct / 100);
+
+      const capitalPorCuota = adjustedMonto / numeroCuotas;
 
       // Primera fecha de vencimiento según regla de producto
       const primera_venc = primeraFechaVencimiento(
@@ -99,17 +102,14 @@ export async function createCredito(formData: FormData) {
       const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
       const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
 
-      // Interés prorrateado para la PRIMERA cuota (sobre TODO el capital)
-      const interesProrrateado = monto * tasaAnual * (diasEntre / 360);
+      // Interés prorrateado para la PRIMERA cuota (sobre el monto ajustado)
+      const interesProrrateado = adjustedMonto * tasaAnual * (diasEntre / 360);
 
-      // Interés mensual "normal" para las cuotas siguientes (sobre TODO el capital)
+      // Interés mensual "normal" para las cuotas siguientes (sobre el capital por cuota)
       const interesMensualNormal = capitalPorCuota * tasaMensual;
 
-
-      // Comisión aplicada al capital de CADA cuota…
-      const comisionPorCuota = capitalPorCuota * comisionPct;
-      // …pero acumulada ENTERA en la primera
-      const comisionTotal = comisionPorCuota * numeroCuotas;
+      // Comisión de gestión total aplicada al inicio (monto * gestionPct)
+      const comisionTotal = monto * (gestionPct / 100);
 
       /* ──────────────────────────────────────────────
        *  🔢 Generación de cuotas
@@ -133,11 +133,10 @@ export async function createCredito(formData: FormData) {
         const esPrimera = i === 0;
 
         const interes = esPrimera ? interesProrrateado : interesMensualNormal;
-        const comision = esPrimera ? comisionTotal : 0;
-        const extraGestion = esPrimera ? gestion : 0;
 
-        const monto_interes = interes + comision; // en el modelo no hay campo separado para comisión
-        const monto_total = capitalPorCuota + monto_interes + extraGestion;
+        const monto_interes = interes; // la comisión de gestión ya fue aplicada al monto financiado
+        const bruto = capitalPorCuota + monto_interes;
+        const monto_total = Math.round(bruto * (1 - comercializadoraPct / 100) * 100) / 100;
 
         cuotas.push({
           numero_cuota: i + 1,
@@ -310,8 +309,8 @@ export async function importCreditosAction(formData: FormData) {
             row["numero_cuotas"]
               ? Number(row["numero_cuotas"])
               : row["cuotas"]
-              ? Number(row["cuotas"])
-              : producto.numero_cuotas ?? 1;
+                ? Number(row["cuotas"])
+                : 1;
 
           numeroCuotas =
             Number.isFinite(numeroCuotas) && numeroCuotas > 0
@@ -327,10 +326,14 @@ export async function importCreditosAction(formData: FormData) {
           const tasaMensual = producto.tasa_interes / 100;
           const tasaAnual = tasaMensual * 12;
 
-          const comisionPct = producto.comision_comerc / 100;
-          const gestion = producto.comision_gestion ?? 0;
+          // comisión de gestión (porcentaje) aplicada al monto inicial. Por defecto 7%
+          const gestionPct = producto.comision_gestion && producto.comision_gestion > 0 ? producto.comision_gestion : 7;
+          // comisión de la comercializadora por cuota (porcentaje). Por defecto 3%
+          const comercializadoraPct = producto.comision_comerc && producto.comision_comerc > 0 ? producto.comision_comerc : 3;
 
-          const capitalPorCuota = monto / numeroCuotas;
+          const adjustedMonto = monto * (1 + gestionPct / 100);
+
+          const capitalPorCuota = adjustedMonto / numeroCuotas;
 
           const primera_venc = primeraFechaVencimiento(
             hoy,
@@ -351,16 +354,14 @@ export async function importCreditosAction(formData: FormData) {
             Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia)
           );
 
-          // interés prorrateado sobre TODO el capital
-          const interesProrrateado = monto * tasaAnual * (diasEntre / 360);
+          // interés prorrateado sobre el monto ajustado
+          const interesProrrateado = adjustedMonto * tasaAnual * (diasEntre / 360);
 
-          // interés mensual normal (sobre TODO el monto)
+          // interés mensual normal (sobre el capital por cuota)
           const interesMensualNormal = capitalPorCuota * tasaMensual;
 
-
-          // comisión (aplicada al capital por cuota, acumulada en la primera)
-          const comisionPorCuota = capitalPorCuota * comisionPct;
-          const comisionTotal = comisionPorCuota * numeroCuotas;
+          // comisión de gestión total aplicada al inicio
+          const comisionTotal = monto * (gestionPct / 100);
 
           /* ---------------------------------------------
            *  GENERAR CUOTAS
@@ -378,11 +379,10 @@ export async function importCreditosAction(formData: FormData) {
             const esPrimera = c === 0;
 
             const interes = esPrimera ? interesProrrateado : interesMensualNormal;
-            const comision = esPrimera ? comisionTotal : 0;
-            const extraGestion = esPrimera ? gestion : 0;
 
-            const monto_interes = interes + comision;
-            const monto_total = capitalPorCuota + monto_interes + extraGestion;
+            const monto_interes = interes;
+            const bruto = capitalPorCuota + monto_interes;
+            const monto_total = Math.round(bruto * (1 - comercializadoraPct / 100) * 100) / 100;
 
             cuotas.push({
               numero_cuota: c + 1,

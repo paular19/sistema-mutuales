@@ -37,24 +37,24 @@ export async function getCreditos(params: any = {}) {
 
       ...(producto
         ? {
-            producto: {
-              nombre: { contains: producto, mode: "insensitive" },
-            },
-          }
+          producto: {
+            nombre: { contains: producto, mode: "insensitive" },
+          },
+        }
         : {}),
 
       ...(palabras.length > 0
         ? {
-            AND: palabras.map((p: string) => ({
-              asociado: {
-                OR: [
-                  { nombre: { contains: p, mode: "insensitive" } },
-                  { apellido: { contains: p, mode: "insensitive" } },
-                  { razon_social: { contains: p, mode: "insensitive" } },
-                ],
-              },
-            })),
-          }
+          AND: palabras.map((p: string) => ({
+            asociado: {
+              OR: [
+                { nombre: { contains: p, mode: "insensitive" } },
+                { apellido: { contains: p, mode: "insensitive" } },
+                { razon_social: { contains: p, mode: "insensitive" } },
+              ],
+            },
+          })),
+        }
         : {}),
     };
 
@@ -141,7 +141,6 @@ export async function getCreditoById(id_credito: number) {
           select: {
             id_producto: true,
             nombre: true,
-            numero_cuotas: true,
             tasa_interes: true,
             comision_comerc: true,
             dia_vencimiento: true,

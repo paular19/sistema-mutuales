@@ -19,7 +19,6 @@ export async function createProducto(formData: FormData) {
 
     const raw = {
       nombre: formData.get("nombre") as string,
-      numero_cuotas: Number(formData.get("numero_cuotas")),
       tasa_interes: Number(formData.get("tasa_interes")),
       dia_vencimiento: Number(formData.get("dia_vencimiento")),
       regla_vencimiento: formData.get("regla_vencimiento") as any,
@@ -103,7 +102,6 @@ export async function updateProducto(formData: FormData) {
 
     const raw = {
       nombre: formData.get("nombre") as string,
-      numero_cuotas: Number(formData.get("numero_cuotas")),
       tasa_interes: Number(formData.get("tasa_interes")),
       dia_vencimiento: Number(formData.get("dia_vencimiento")),
       regla_vencimiento: formData.get("regla_vencimiento") as any,

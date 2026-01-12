@@ -4,10 +4,11 @@ export interface CalcularCuotasParams {
   monto: number;
   cuotas: number;
   tasaMensual: number;
-  comisionPct: number;
-  gestion?: number | null;
+  comisionPct: number; // commercializadora pct (will be treated as percentage)
+  gestionPct?: number | null; // gestion pct (percentage applied to initial monto)
   diaVencimiento: number;
-  reglaVencimiento: string; 
+  reglaVencimiento: string;
+  comercializadoraPct?: number;
 }
 
 export function calcularCuotasCredito({
@@ -15,9 +16,10 @@ export function calcularCuotasCredito({
   cuotas,
   tasaMensual,
   comisionPct,
-  gestion,
+  gestionPct,
   diaVencimiento,
   reglaVencimiento
+  , comercializadoraPct = 3
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
@@ -26,7 +28,13 @@ export function calcularCuotasCredito({
   const tasaMensualDecimal = tasaMensual / 100;
   const tasaAnualDecimal = tasaMensualDecimal * 12;
 
-  const capitalPorCuota = monto / cuotas;
+  // `gestionPct` es la comisión de gestión (porcentaje) aplicada al monto inicial
+  const gestionAplicada = (gestionPct ?? 0) / 100;
+
+  // Monto final sobre el que se aplica interés = monto inicial + comision de gestión
+  const adjustedMonto = monto * (1 + gestionAplicada);
+
+  const capitalPorCuota = adjustedMonto / cuotas;
 
   let primerVenc = new Date(
     hoy.getFullYear(),
@@ -62,33 +70,35 @@ export function calcularCuotasCredito({
     Math.round((venSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
-  const interesProrrateado = monto * tasaAnualDecimal * (diasEntre / 360);
+  // Intereses se calculan sobre el monto ajustado
+  const interesProrrateado = adjustedMonto * tasaAnualDecimal * (diasEntre / 360);
 
   const interesMensualNormal = capitalPorCuota * tasaMensualDecimal;
 
-  const comisionPorCuota = capitalPorCuota * (comisionPct / 100);
-  const comisionTotal = comisionPorCuota * cuotas;
+  // Comisión de gestión total aplicada al inicio (monto * gestionPct)
+  const comisionTotal = monto * gestionAplicada;
 
-  const primeraCuota =
-    capitalPorCuota +
-    interesProrrateado +
-    comisionTotal +
-    (gestion ?? 0);
+  // Porcentaje que retiene la comercializadora sobre cada cuota (ej: 3%)
+  const comercializadoraFactor = 1 - (comercializadoraPct / 100);
 
-  const cuotaRestante = capitalPorCuota + interesMensualNormal;
+  const primeraCuotaAntesRetencion = capitalPorCuota + interesProrrateado;
 
-  const totalFinanciado =
-    primeraCuota + cuotaRestante * (cuotas - 1);
+  const primeraCuota = Math.round(primeraCuotaAntesRetencion * comercializadoraFactor * 100) / 100;
+
+  const cuotaRestante = Math.round((capitalPorCuota + interesMensualNormal) * comercializadoraFactor * 100) / 100;
+
+  const totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
 
   return {
     capitalPorCuota,
     interesProrrateado,
     interesMensualNormal,
-    comisionPorCuota,
     comisionTotal,
     primeraCuota,
     cuotaRestante,
     totalFinanciado,
+    montoInicial: monto,
+    montoFinal: adjustedMonto,
     diasEntre,
     primerVenc
   };

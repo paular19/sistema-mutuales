@@ -19,7 +19,6 @@ interface ProductoFormProps {
   initialData?: {
     id_producto?: number;
     nombre?: string;
-    numero_cuotas?: number;
     tasa_interes?: number;
     dia_vencimiento?: number;
     regla_vencimiento?: "AJUSTAR_ULTIMO_DIA" | "ESTRICTO";
@@ -45,9 +44,9 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
 
         toast.success(
           res?.message ||
-            (isEdit
-              ? "Producto actualizado correctamente."
-              : "Producto creado correctamente.")
+          (isEdit
+            ? "Producto actualizado correctamente."
+            : "Producto creado correctamente.")
         );
 
         // ✅ Redirección manual después de crear/editar
@@ -77,18 +76,7 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
       </div>
 
       {/* Número de cuotas */}
-      <div>
-        <Label htmlFor="numero_cuotas">Número de cuotas</Label>
-        <Input
-          id="numero_cuotas"
-          type="number"
-          name="numero_cuotas"
-          min={1}
-          max={360}
-          defaultValue={initialData?.numero_cuotas ?? 1}
-          required
-        />
-      </div>
+      {/* Nota: el número de cuotas se define al crear un crédito, no en el producto. */}
 
       {/* Tasa de interés */}
       <div>
@@ -154,22 +142,23 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
           min={0}
           max={100}
           name="comision_comerc"
-          defaultValue={initialData?.comision_comerc ?? 0}
+          defaultValue={initialData?.comision_comerc ?? 3}
         />
       </div>
 
       {/* Comisión de gestión */}
       <div>
         <Label htmlFor="comision_gestion">
-          Comisión de gestión (monto fijo)
+          Comisión de gestión (%)
         </Label>
         <Input
           id="comision_gestion"
           type="number"
           step="0.01"
           min={0}
+          max={100}
           name="comision_gestion"
-          defaultValue={initialData?.comision_gestion ?? 0}
+          defaultValue={initialData?.comision_gestion ?? 7}
         />
       </div>
 
@@ -180,8 +169,8 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
             ? "Actualizando..."
             : "Creando..."
           : isEdit
-          ? "Actualizar producto"
-          : "Crear producto"}
+            ? "Actualizar producto"
+            : "Crear producto"}
       </Button>
     </form>
   );
