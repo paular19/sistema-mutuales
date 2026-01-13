@@ -158,7 +158,7 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
           min={0}
           max={100}
           name="comision_gestion"
-          defaultValue={initialData?.comision_gestion ?? 7}
+          defaultValue={initialData?.comision_gestion ?? 7.816712}
         />
       </div>
 

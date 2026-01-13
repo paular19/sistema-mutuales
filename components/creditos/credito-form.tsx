@@ -62,7 +62,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       // comisionPct = comercializadora pct (por cuota)
       comisionPct: productoSeleccionado.comision_comerc ?? 3,
       // gestionPct = porcentaje de gestión aplicado al monto inicial
-      gestionPct: productoSeleccionado.comision_gestion ?? 7,
+      gestionPct: productoSeleccionado.comision_gestion ?? 7.816712,
       diaVencimiento: productoSeleccionado.dia_vencimiento,
       reglaVencimiento: productoSeleccionado.regla_vencimiento,
     });
@@ -176,7 +176,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
 
           <p>💵 <strong>Capital por cuota:</strong> ${calculo.capitalPorCuota.toFixed(2)}</p>
           <p>💵 <strong>Monto inicial:</strong> ${Number(monto).toFixed(2)}</p>
-          <p>💵 <strong>Monto final (+{productoSeleccionado?.comision_gestion ?? 7}%):</strong> ${calculo.montoFinal.toFixed(2)}</p>
+          <p>💵 <strong>Monto final{productoSeleccionado?.comision_gestion ? ` (+${productoSeleccionado.comision_gestion}%)` : ''}:</strong> ${calculo.montoFinal.toFixed(2)}</p>
 
           <p>📈 <strong>Interés prorrateado 1° cuota:</strong> ${calculo.interesProrrateado.toFixed(2)}</p>
 

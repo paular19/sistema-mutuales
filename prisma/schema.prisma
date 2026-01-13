@@ -119,8 +119,8 @@ model Producto {
   fecha_creacion    DateTime         @default(now())
   dia_vencimiento   Int              @db.SmallInt
   regla_vencimiento VencimientoRegla @default(AJUSTAR_ULTIMO_DIA)
-  comision_comerc   Float            @default(7)
-  comision_gestion  Float?           @default(0)
+  comision_comerc   Float            @default(3)
+  comision_gestion  Float            @default(7.816712)
   creditos          Credito[]
   mutual            Mutual           @relation(fields: [id_mutual], references: [id_mutual])
   activo            Boolean          @default(true)

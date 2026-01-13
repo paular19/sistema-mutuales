@@ -26,7 +26,7 @@ export const ProductoSchema = z.object({
 
   comision_gestion: z.number()
     .min(0, "La comisión no puede ser negativa")
-    .default(7),
+    .default(7.816712),
 });
 
 export type ProductoFormData = z.infer<typeof ProductoSchema>;
