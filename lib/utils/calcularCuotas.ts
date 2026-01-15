@@ -37,19 +37,13 @@ export function calcularCuotasCredito({
   // Monto final sobre el que se aplica interés = monto inicial + comision de gestión
   const adjustedMonto = monto * (1 + gestionAplicada);
 
+  // Primera fecha de vencimiento: siempre en el mes siguiente o posterior
+  // Si hoy es 15/1 y el cierre es día 20, el primer vencimiento es 20/2 (no 20/1)
   let primerVenc = new Date(
     hoy.getFullYear(),
-    hoy.getMonth(),
+    hoy.getMonth() + 1, // Siempre mes siguiente
     diaVencimiento
   );
-
-  if (primerVenc.getTime() <= hoy.getTime()) {
-    primerVenc = new Date(
-      hoy.getFullYear(),
-      hoy.getMonth() + 1,
-      diaVencimiento
-    );
-  }
 
   if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
     const ultimo = new Date(primerVenc.getFullYear(), primerVenc.getMonth() + 1, 0).getDate();
@@ -102,6 +96,38 @@ export function calcularCuotasCredito({
 
   const totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
 
+  // Generar detalle de todas las cuotas con fechas de cierre
+  const detalleCuotas: Array<{
+    numero: number;
+    fechaCierre: Date;
+    monto: number;
+  }> = [];
+
+  let fechaActual = new Date(primerVenc);
+
+  for (let i = 1; i <= cuotas; i++) {
+    const montoCuota = i === 1 ? primeraCuota : cuotaRestante;
+
+    detalleCuotas.push({
+      numero: i,
+      fechaCierre: new Date(fechaActual),
+      monto: montoCuota
+    });
+
+    // Calcular siguiente fecha
+    if (i < cuotas) {
+      fechaActual = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, diaVencimiento);
+
+      // Aplicar regla de vencimiento para meses con menos días
+      if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
+        const ultimoDia = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0).getDate();
+        if (diaVencimiento > ultimoDia) {
+          fechaActual.setDate(ultimoDia);
+        }
+      }
+    }
+  }
+
   return {
     capitalPorCuota: capitalPrimeraCuota, // capital de la primera cuota (sin prorrateo)
     interesProrrateado,
@@ -113,6 +139,7 @@ export function calcularCuotasCredito({
     montoInicial: monto,
     montoFinal: adjustedMonto,
     diasEntre,
-    primerVenc
+    primerVenc,
+    detalleCuotas
   };
 }

@@ -19,9 +19,10 @@ function ajustarAlMes(base: Date, dia: number, regla: VencimientoRegla) {
 }
 
 function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla) {
-  const candidato = ajustarAlMes(hoy, dia, regla);
-  if (hoy.getTime() <= candidato.getTime()) return candidato;
-  return ajustarAlMes(addMonths(candidato, 1), dia, regla);
+  // Siempre usar el mes siguiente (no el mes actual)
+  // Si hoy es 15/1 y el cierre es día 20, el primer vencimiento es 20/2
+  const mesProximo = addMonths(hoy, 1);
+  return ajustarAlMes(mesProximo, dia, regla);
 }
 
 /* ──────────────────────────────────────────────

@@ -39,7 +39,7 @@ export function LiquidacionesTable({ filas }: LiquidacionesTableProps) {
             <TableHead>Producto</TableHead>
             <TableHead>Crédito</TableHead>
             <TableHead>Cuota</TableHead>
-            <TableHead>Vencimiento</TableHead>
+            <TableHead>Fecha de Cierre</TableHead>
             <TableHead className="text-right">Monto</TableHead>
             <TableHead className="text-center">Estado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
@@ -56,8 +56,8 @@ export function LiquidacionesTable({ filas }: LiquidacionesTableProps) {
               f.estado === EstadoCuota.pagada
                 ? EstadoCuota.pagada
                 : vencida
-                ? EstadoCuota.vencida
-                : EstadoCuota.pendiente;
+                  ? EstadoCuota.vencida
+                  : EstadoCuota.pendiente;
 
             return (
               <TableRow key={f.id_cuota}>

@@ -189,29 +189,61 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
         <div className="p-4 border rounded-lg bg-gray-50 space-y-2">
           <h3 className="font-bold text-lg">Resumen del Crédito</h3>
 
-          <p>🗓 <strong>Días hasta primer vencimiento:</strong> {calculo.diasEntre}</p>
+          <p><strong>Días hasta primer cierre:</strong> {calculo.diasEntre}</p>
 
-          <p>💵 <strong>Capital por cuota:</strong> ${calculo.capitalPorCuota.toFixed(2)}</p>
-          <p>💵 <strong>Monto inicial:</strong> ${Number(monto).toFixed(2)}</p>
-          <p>💵 <strong>Monto final{productoSeleccionado?.comision_gestion ? ` (+${productoSeleccionado.comision_gestion}%)` : ''}:</strong> ${calculo.montoFinal.toFixed(2)}</p>
+          <p><strong>Monto inicial:</strong> ${Number(monto).toFixed(2)}</p>
+          <p><strong>Monto final{productoSeleccionado?.comision_gestion ? ` (+${productoSeleccionado.comision_gestion}%)` : ''}:</strong> ${calculo.montoFinal.toFixed(2)}</p>
 
-          <p>📈 <strong>Interés prorrateado 1° cuota:</strong> ${calculo.interesProrrateado.toFixed(2)}</p>
+          <p><strong>Interés prorrateado 1° cuota:</strong> ${calculo.interesProrrateado.toFixed(2)}</p>
 
-          <p>💼 <strong>Comisión de gestión total (aplicada al inicio):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
+          <p><strong>Comisión de gestión total (aplicada al inicio):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
 
           <p className="text-blue-700 font-semibold">
-            🔵 Primera cuota: ${calculo.primeraCuota.toFixed(2)}
+            Primera cuota: ${calculo.primeraCuota.toFixed(2)}
           </p>
 
           <p className="text-green-700 font-semibold">
-            🟢 Cuotas restantes: ${calculo.cuotaRestante.toFixed(2)}
+            Cuotas restantes: ${calculo.cuotaRestante.toFixed(2)}
           </p>
 
           <hr />
 
           <p className="text-xl font-bold">
-            💰 Total financiado: ${calculo.totalFinanciado.toFixed(2)}
+            Total financiado: ${calculo.totalFinanciado.toFixed(2)}
           </p>
+
+          {/* Detalle de cuotas */}
+          <div className="mt-4">
+            <h4 className="font-semibold mb-2">Detalle de Cuotas:</h4>
+            <div className="bg-white p-3 rounded border max-h-64 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b">
+                  <tr>
+                    <th className="text-left py-1">Cuota</th>
+                    <th className="text-left py-1">Fecha de Cierre</th>
+                    <th className="text-right py-1">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calculo.detalleCuotas.map((cuota) => (
+                    <tr key={cuota.numero} className="border-b last:border-0">
+                      <td className="py-1">{cuota.numero}/{calculo.detalleCuotas.length}</td>
+                      <td className="py-1">
+                        {cuota.fechaCierre.toLocaleDateString('es-AR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="text-right py-1 font-mono">
+                        ${cuota.monto.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

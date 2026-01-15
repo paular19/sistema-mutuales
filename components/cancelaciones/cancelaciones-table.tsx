@@ -38,8 +38,8 @@ export function CancelacionesTable({
         {tipo === "abonadas"
           ? "No hay cuotas abonadas en este período."
           : tipo === "impagas"
-          ? "No hay cuotas impagas en este período."
-          : "No hay datos disponibles."}
+            ? "No hay cuotas impagas en este período."
+            : "No hay datos disponibles."}
       </div>
     );
   }
@@ -54,7 +54,7 @@ export function CancelacionesTable({
             <TableHead>Producto</TableHead>
             <TableHead>Crédito</TableHead>
             <TableHead>Cuota</TableHead>
-            <TableHead>Vencimiento</TableHead>
+            <TableHead>Fecha de Cierre</TableHead>
             <TableHead className="text-right">Monto</TableHead>
             <TableHead className="text-center">Estado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
