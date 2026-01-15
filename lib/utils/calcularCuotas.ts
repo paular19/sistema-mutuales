@@ -9,6 +9,7 @@ export interface CalcularCuotasParams {
   diaVencimiento: number;
   reglaVencimiento: string;
   comercializadoraPct?: number;
+  fechaOtorgamiento?: Date; // fecha de creación del crédito
 }
 
 export function calcularCuotasCredito({
@@ -18,12 +19,13 @@ export function calcularCuotasCredito({
   comisionPct,
   gestionPct,
   diaVencimiento,
-  reglaVencimiento
-  , comercializadoraPct = 3
+  reglaVencimiento,
+  comercializadoraPct = 3,
+  fechaOtorgamiento
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
-  const hoy = new Date();
+  const hoy = fechaOtorgamiento || new Date();
 
   const tasaMensualPercent = tasaMensual; // e.g. 9.58
   const tasaMensualDecimal = tasaMensualPercent / 100;
@@ -69,10 +71,11 @@ export function calcularCuotasCredito({
     Math.round((venSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
-  // Intereses se calculan sobre el monto ajustado.
-  // Nueva regla: (tasaMensual/30) * (diasEntre - 30) / 100 * montoFinal
-  const diasExtra = Math.max(0, diasEntre - 30);
-  const interesProrrateado = adjustedMonto * (tasaMensualPercent / 30) * (diasExtra / 100);
+  // Interés prorrateado para la PRIMERA cuota:
+  // Se calcula el interés proporcional a los días reales hasta el primer vencimiento
+  // Si diasEntre < 30: se cobra menos interés (proporción de días/30)
+  // Si diasEntre > 30: se cobra más interés (proporción de días/30)
+  const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasEntre / 30);
 
   // Comisión de gestión total aplicada al inicio (monto * gestionPct)
   const comisionTotal = monto * gestionAplicada;

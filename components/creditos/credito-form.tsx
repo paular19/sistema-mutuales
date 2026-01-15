@@ -44,6 +44,9 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
   const [idProducto, setIdProducto] = useState("");
   const [monto, setMonto] = useState("");
   const [cantidadCuotas, setCantidadCuotas] = useState("");
+  const [fechaCreacion, setFechaCreacion] = useState(
+    new Date().toISOString().split('T')[0]
+  );
 
   const productoSeleccionado = useMemo(() => {
     return productos.find((p) => p.id_producto === Number(idProducto)) || null;
@@ -65,8 +68,9 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       gestionPct: productoSeleccionado.comision_gestion ?? 7.816712,
       diaVencimiento: productoSeleccionado.dia_vencimiento,
       reglaVencimiento: productoSeleccionado.regla_vencimiento,
+      fechaOtorgamiento: fechaCreacion ? new Date(fechaCreacion) : new Date(),
     });
-  }, [monto, cantidadCuotas, productoSeleccionado]);
+  }, [monto, cantidadCuotas, productoSeleccionado, fechaCreacion]);
 
 
   /* ----------------------------------------
@@ -150,6 +154,19 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
           className="mt-1 w-full border p-2 rounded"
           required
           min="1"
+        />
+      </div>
+
+      {/* ---------------- Fecha de creación ---------------- */}
+      <div>
+        <label className="font-semibold">Fecha de creación</label>
+        <input
+          type="date"
+          name="fecha_creacion"
+          value={fechaCreacion}
+          onChange={(e) => setFechaCreacion(e.target.value)}
+          className="mt-1 w-full border p-2 rounded"
+          required
         />
       </div>
 

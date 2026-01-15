@@ -62,11 +62,13 @@ export async function createCredito(formData: FormData) {
         numeroCuotas = 1;
       }
 
+      /* 🔹 Fecha de creación del crédito */
+      const fechaCreacionStr = formData.get("fecha_creacion");
+      const hoy = fechaCreacionStr ? new Date(String(fechaCreacionStr)) : new Date();
+
       /* ──────────────────────────────────────────────
        *  🧮 Parámetros financieros
        * ────────────────────────────────────────────── */
-
-      const hoy = new Date();
 
       // tasa mensual (como porcentaje) y su forma decimal
       const tasaMensualPercent = producto.tasa_interes;
@@ -98,10 +100,11 @@ export async function createCredito(formData: FormData) {
       const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
       const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
 
-      // Interés prorrateado para la PRIMERA cuota (regla nueva):
-      // (tasaMensualPercent / 30) * (diasHastaPrimerVenc - 30) / 100 * montoFinal
-      const diasExtra = Math.max(0, diasEntre - 30);
-      const interesProrrateado = adjustedMonto * (tasaMensualPercent / 30) * (diasExtra / 100);
+      // Interés prorrateado para la PRIMERA cuota:
+      // Se calcula el interés proporcional a los días reales hasta el primer vencimiento
+      // Si diasEntre < 30: se cobra menos interés (proporción de días/30)
+      // Si diasEntre > 30: se cobra más interés (proporción de días/30)
+      const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasEntre / 30);
 
       // tasa efectiva mensual en decimal
       const iRate = tasaMensual; // ya definido como tasaMensualPercent/100
@@ -179,6 +182,7 @@ export async function createCredito(formData: FormData) {
           id_asociado,
           id_producto,
           monto, // capital original
+          fecha_creacion: hoy, // fecha personalizada o hoy
 
           tasa_interes: producto.tasa_interes,   // mensual, como cargás en producto
           numero_cuotas: numeroCuotas,
