@@ -48,58 +48,58 @@ export function AsociadoForm({
   // IMPORTAR ARCHIVO EXCEL
   // -------------------------------------------------------------
   async function handleImport(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  setIsImporting(true);
+    e.preventDefault();
+    setIsImporting(true);
 
-  const form = e.currentTarget;
+    const form = e.currentTarget;
 
-  try {
-    const formData = new FormData(form);
-    const result = await importAsociadosAction(formData);
+    try {
+      const formData = new FormData(form);
+      const result = await importAsociadosAction(formData);
 
-    // ⛔ Error inesperado
-    if (result?.error) {
-      toast.error("Error al importar", {
-        description: result.error,
+      // ⛔ Error inesperado
+      if (result?.error) {
+        toast.error("Error al importar", {
+          description: result.error,
+          icon: <XCircle className="text-red-500 w-6 h-6" />,
+        });
+        return;
+      }
+
+      // 👉 Fix TS: fallback seguro
+      const success = result.successCount ?? 0;
+      const errors = result.errorCount ?? 0;
+
+      // ✔ Importaciones OK
+      if (success > 0) {
+        toast.success("Importación completa", {
+          description: `Se importaron ${success} asociado${success !== 1 ? "s" : ""} correctamente.`,
+          icon: <CheckCircle className="text-green-500 w-6 h-6" />,
+        });
+      }
+
+      // ❌ Filas rechazadas
+      if (errors > 0) {
+        toast.error("Algunas filas no se importaron", {
+          description: `${errors} errores detectados`,
+          icon: <XCircle className="text-red-500 w-6 h-6" />,
+        });
+
+        console.table(result.results);
+      }
+
+      form.reset();
+      router.refresh();
+      router.push("/dashboard/asociados");
+    } catch (err) {
+      toast.error("Error inesperado", {
+        description: "Ocurrió un error al procesar el archivo",
         icon: <XCircle className="text-red-500 w-6 h-6" />,
       });
-      return;
+    } finally {
+      setIsImporting(false);
     }
-
-    // 👉 Fix TS: fallback seguro
-    const success = result.successCount ?? 0;
-    const errors = result.errorCount ?? 0;
-
-    // ✔ Importaciones OK
-    if (success > 0) {
-      toast.success("Importación completa", {
-        description: `Se importaron ${success} asociado${success !== 1 ? "s" : ""} correctamente.`,
-        icon: <CheckCircle className="text-green-500 w-6 h-6" />,
-      });
-    }
-
-    // ❌ Filas rechazadas
-    if (errors > 0) {
-      toast.error("Algunas filas no se importaron", {
-        description: `${errors} errores detectados`,
-        icon: <XCircle className="text-red-500 w-6 h-6" />,
-      });
-
-      console.table(result.results);
-    }
-
-    form.reset();
-    router.refresh();
-    router.push("/dashboard/asociados");
-  } catch (err) {
-    toast.error("Error inesperado", {
-      description: "Ocurrió un error al procesar el archivo",
-      icon: <XCircle className="text-red-500 w-6 h-6" />,
-    });
-  } finally {
-    setIsImporting(false);
   }
-}
 
 
   // -------------------------------------------------------------
@@ -241,6 +241,22 @@ export function AsociadoForm({
             <option value="juridica">Jurídica</option>
           </select>
           {FE("tipo_persona")}
+        </div>
+
+        {/* Convenio */}
+        <div>
+          <label className="block font-medium mb-1">Convenio</label>
+          <select
+            name="convenio"
+            defaultValue={initialData?.convenio ?? ""}
+            className="w-full border rounded-md px-3 py-2"
+          >
+            <option value="">Sin convenio</option>
+            <option value="TRES_DE_ABRIL">3 de Abril</option>
+            <option value="CENTRO">Centro</option>
+            <option value="CLINICA_SAN_RAFAEL">Clínica San Rafael</option>
+          </select>
+          {FE("convenio")}
         </div>
 
         {tipoPersona === "fisica" ? (

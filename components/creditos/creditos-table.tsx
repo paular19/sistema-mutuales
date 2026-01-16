@@ -6,6 +6,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { formatCurrency } from "@/lib/utils/format";
 import { CreditosFilters } from "./creditos-filters";
 import { Pagination } from "@/components/ui/pagination";
+import { FileText } from "lucide-react";
+import { useState } from "react";
 
 interface Credito {
     id_credito: number;
@@ -20,6 +22,7 @@ interface Credito {
         apellido: string | null;
         razon_social: string | null;
         tipo_persona: "fisica" | "juridica" | null;
+        convenio?: string | null;
     };
     producto?: { nombre: string | null };
 }
@@ -31,6 +34,35 @@ interface CreditosTableProps {
 }
 
 export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTableProps) {
+    const [loadingPdf, setLoadingPdf] = useState<number | null>(null);
+
+    const handleDescargarPDF = async (idCredito: number) => {
+        try {
+            setLoadingPdf(idCredito);
+
+            const response = await fetch(`/endpoints/creditos/documento?id=${idCredito}`);
+
+            if (!response.ok) {
+                throw new Error("Error al generar PDF");
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `solicitud-credito-${idCredito}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error al descargar PDF:", error);
+            alert("Error al generar el documento");
+        } finally {
+            setLoadingPdf(null);
+        }
+    };
+
     if (creditos.length === 0) {
         return (
             <>
@@ -58,7 +90,7 @@ export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTab
                             <TableHead>Cuotas pagadas</TableHead>
                             <TableHead>Cuotas pendientes</TableHead>
                             <TableHead>Estado</TableHead>
-                            <TableHead className="text-center">Cuotas</TableHead>
+                            <TableHead className="text-center">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -83,6 +115,18 @@ export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTab
                                             <Link href={`/dashboard/creditos/${c.id_credito}/cuotas`}>
                                                 <span>Ver cuotas</span>
                                             </Link>
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDescargarPDF(c.id_credito)}
+                                            disabled={loadingPdf === c.id_credito}
+                                            className="flex items-center gap-1"
+                                            title="Descargar documento de solicitud"
+                                        >
+                                            <FileText className="w-4 h-4" />
+                                            {loadingPdf === c.id_credito ? "..." : "PDF"}
                                         </Button>
                                     </div>
                                 </TableCell>

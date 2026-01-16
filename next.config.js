@@ -6,8 +6,19 @@ const nextConfig = {
   images: { unoptimized: true },
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb", 
+      bodySizeLimit: "10mb",
     },
+  },
+  webpack: (config, { isServer }) => {
+    // Excluir templates de PDF del bundle del cliente
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@/lib/utils/pdf-templates': false,
+        '@/lib/utils/documento-credito': false,
+      };
+    }
+    return config;
   },
 };
 

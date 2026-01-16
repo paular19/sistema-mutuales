@@ -6,6 +6,9 @@ import * as XLSX from "xlsx";
 import { addMonths } from "date-fns";
 import { EstadoCredito, EstadoCuota, VencimientoRegla } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { generarDocumentoCredito } from "@/lib/utils/documento-credito-pdflib";
+import { writeFile } from "fs/promises";
+import { join } from "path";
 
 /* ───────── Helpers de fechas / cálculos ───────── */
 function ultimoDiaDelMes(d: Date) {
@@ -23,6 +26,38 @@ function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla
   // Si hoy es 15/1 y el cierre es día 20, el primer vencimiento es 20/2
   const mesProximo = addMonths(hoy, 1);
   return ajustarAlMes(mesProximo, dia, regla);
+}
+
+/* ───────── Helper para generar y guardar PDF ───────── */
+async function generarYGuardarPDFCredito(credito: any) {
+  try {
+    const pdfBuffer = await generarDocumentoCredito({
+      credito: {
+        id_credito: credito.id_credito,
+        monto: credito.monto,
+        numero_cuotas: credito.numero_cuotas,
+        tasa_interes: credito.tasa_interes,
+        fecha_creacion: credito.fecha_creacion,
+        primera_venc: credito.primera_venc,
+        producto: credito.producto,
+      },
+      asociado: credito.asociado,
+      mutual: credito.mutual,
+    });
+
+    // Guardar en public/documentos/creditos
+    const dirPath = join(process.cwd(), "public", "documentos", "creditos");
+    const fileName = `credito-${credito.id_credito}.pdf`;
+    const filePath = join(dirPath, fileName);
+
+    // Crear directorio si no existe
+    await writeFile(filePath, pdfBuffer);
+
+    console.log(`✅ PDF generado: ${fileName}`);
+  } catch (error) {
+    console.error("❌ Error generando PDF:", error);
+    throw error;
+  }
 }
 
 /* ──────────────────────────────────────────────
@@ -211,6 +246,25 @@ export async function createCredito(formData: FormData) {
             ...c,
             id_credito: credito.id_credito,
           },
+        });
+      }
+
+      // 🎯 GENERAR PDF DEL CRÉDITO (background - no bloquea)
+      // Traer datos completos para el PDF
+      const creditoCompleto = await tx.credito.findUnique({
+        where: { id_credito: credito.id_credito },
+        include: {
+          asociado: true,
+          producto: true,
+          mutual: true,
+        },
+      });
+
+      // Generar PDF en background (sin await para no bloquear)
+      if (creditoCompleto) {
+        generarYGuardarPDFCredito(creditoCompleto).catch((err) => {
+          console.error("⚠️ Error al generar PDF de crédito:", err);
+          // No fallar toda la operación si falla el PDF
         });
       }
 

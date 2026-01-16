@@ -36,6 +36,12 @@ enum VencimientoRegla {
   ESTRICTO
 }
 
+enum Convenio {
+  TRES_DE_ABRIL
+  CENTRO
+  CLINICA_SAN_RAFAEL
+}
+
 model Mutual {
   id_mutual     Int            @id @default(autoincrement())
   nombre        String         @db.VarChar(50)
@@ -92,6 +98,7 @@ model Asociado {
   recibe_notificaciones Boolean       @default(true)
   saldo_disponible      Decimal       @default(0)
   tipo_persona          TipoPersona   @default(fisica)
+  convenio              Convenio?
   mutual                Mutual        @relation(fields: [id_mutual], references: [id_mutual])
   tipoAsociado          TipoAsociado? @relation(fields: [id_tipo], references: [id_tipo])
   creditos              Credito[]
