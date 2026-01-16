@@ -52,23 +52,37 @@ export function calcularCuotasCredito({
     }
   }
 
+  // Fecha de cierre del mes actual (para calcular prorrateo)
+  let fechaCierre = new Date(
+    hoy.getFullYear(),
+    hoy.getMonth(),
+    diaVencimiento
+  );
+
+  if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
+    const ultimo = new Date(fechaCierre.getFullYear(), fechaCierre.getMonth() + 1, 0).getDate();
+    if (diaVencimiento > ultimo) {
+      fechaCierre.setDate(ultimo);
+    }
+  }
+
   const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const venSinHora = new Date(
-    primerVenc.getFullYear(),
-    primerVenc.getMonth(),
-    primerVenc.getDate()
+  const cierreSinHora = new Date(
+    fechaCierre.getFullYear(),
+    fechaCierre.getMonth(),
+    fechaCierre.getDate()
   );
 
   const msDia = 1000 * 60 * 60 * 24;
+  // Calcular días solo hasta el cierre del mes actual
   const diasEntre = Math.max(
     0,
-    Math.round((venSinHora.getTime() - hoySinHora.getTime()) / msDia)
+    Math.round((cierreSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
   // Interés prorrateado para la PRIMERA cuota:
-  // Se calcula el interés proporcional a los días reales hasta el primer vencimiento
-  // Si diasEntre < 30: se cobra menos interés (proporción de días/30)
-  // Si diasEntre > 30: se cobra más interés (proporción de días/30)
+  // Se calcula el interés proporcional a los días desde hoy hasta el cierre del mes actual
+  // El prorrateo se basa en los días del mes actual, NO en los días hasta el vencimiento
   const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasEntre / 30);
 
   // Comisión de gestión total aplicada al inicio (monto * gestionPct)
