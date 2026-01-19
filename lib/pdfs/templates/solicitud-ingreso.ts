@@ -1,55 +1,6 @@
-// src/lib/utils/documento-credito-pdflib.ts
 import "server-only";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import type { Convenio } from "@prisma/client";
-
-/** Tipado completo */
-export type DatosDocumento = {
-  credito: {
-    id_credito: number;
-    monto: number;
-    numero_cuotas: number;
-    tasa_interes: number;
-    fecha_creacion: Date;
-    primera_venc: Date;
-    producto: { nombre: string };
-  };
-  asociado: {
-    id_asociado: number;
-    nombre?: string | null;
-    apellido?: string | null;
-    razon_social?: string | null;
-    cuit?: string | null;
-
-    telefono?: string | null;
-    email?: string | null;
-
-    calle?: string | null;
-    numero_calle?: number | null;
-    piso?: string | null;
-    departamento?: string | null;
-
-    localidad?: string | null;
-    provincia?: string | null;
-    codigo_postal?: string | null;
-
-    convenio?: Convenio | null;
-
-    fecha_nac?: string | null; // "YYYY-MM-DD" o "DD-MM-YYYY"
-    estado_civil?: string | null;
-    lugar_nacimiento?: string | null;
-
-    socio_nro?: string | null;
-    codigo_externo?: string | null;
-    convenio_numero?: string | null;
-
-    [k: string]: any;
-  };
-  mutual: {
-    nombre: string;
-    cuit?: string | null;
-  };
-};
+import type { DatosDocumento, PdfTemplate } from "../types";
 
 /* ----------------- helpers ----------------- */
 
@@ -77,20 +28,9 @@ function upper(v?: string | null, fallback = "") {
   return safe(v, fallback).toUpperCase();
 }
 
-export function fmtConvenio(convenio?: Convenio | string | null) {
-  const s = safe(convenio as any);
-  if (!s) return "";
-
-  const norm = s.toLowerCase().replace(/_/g, " ").trim();
-
-  if (norm.includes("san rafael")) return "CLINICA SAN RAFAEL";
-  if (norm === "centro" || norm.includes("centro")) return "CENTRO";
-  if (norm.includes("3") || norm.includes("tres") || norm.includes("abril")) return "3 DE ABRIL";
-
-  return upper(s).replace(/_/g, " ").trim();
+function fmtConvenio(convenio?: string | null) {
+  return upper(convenio).replace(/_/g, " ").trim();
 }
-
-
 
 function onlyDigits(v?: string | null) {
   return safe(v).replace(/\D/g, "");
@@ -255,8 +195,7 @@ async function generarSolicitudIngresoPDF(datos: DatosDocumento): Promise<Uint8A
   const fechaHeaderLarga = fmtFechaLarga(fechaGeneracion);
   const fechaHeaderCorta = fmtFechaCorta(fechaGeneracion);
 
-  const nombreCompleto =
-    upper(a.razon_social) || `${upper(a.apellido)} ${upper(a.nombre)}`.trim();
+  const nombreCompleto = upper(a.razon_social) || `${upper(a.apellido)} ${upper(a.nombre)}`.trim();
 
   const domicilio = [
     upper(a.calle),
@@ -279,7 +218,8 @@ async function generarSolicitudIngresoPDF(datos: DatosDocumento): Promise<Uint8A
   const socioNro = safe(a.socio_nro) || safe(a.codigo_externo) || `${a.id_asociado}/00`;
   const convenioNumero = safe(a.convenio_numero) || safe(a.codigo_externo);
 
-  const convenioNombre = fmtConvenio(a.convenio ?? null) || "—";
+  // ✅ Profesión o Actividad = convenio (enum)
+  const convenioNombre = fmtConvenio((a.convenio as any) ?? null) || "—";
 
   const estadoCivil = upper(a.estado_civil);
   const lugarNacimiento = upper(a.lugar_nacimiento);
@@ -287,7 +227,6 @@ async function generarSolicitudIngresoPDF(datos: DatosDocumento): Promise<Uint8A
   // ----------------- HEADER -----------------
   draw("SOLICITUD DE INGRESO", POS.title, true);
   draw(`RIO CUARTO , ${fechaHeaderLarga}`, POS.cityDate, false);
-
 
   if (convenioNumero) {
     draw(`Convenio ${convenioNumero}`, POS.convenioTop, false);
@@ -307,11 +246,7 @@ async function generarSolicitudIngresoPDF(datos: DatosDocumento): Promise<Uint8A
     { x: 34.6, y: 178.2, size: 10 },
     false
   );
-  draw(
-    "por los Estatutos, cuyo texto conozco y acepto.",
-    { x: 34.6, y: 190.6, size: 10 },
-    false
-  );
+  draw("por los Estatutos, cuyo texto conozco y acepto.", { x: 34.6, y: 190.6, size: 10 }, false);
 
   // ----------------- DATOS PERSONALES -----------------
   draw("DATOS PERSONALES", POS.datosPersonales, true);
@@ -345,7 +280,7 @@ async function generarSolicitudIngresoPDF(datos: DatosDocumento): Promise<Uint8A
 
   drawFit("ARGENTINO", { x: 145, y: 377.5, size: 10, maxWidth: 100 }, true);
 
-  // ✅ Profesión o Actividad = Convenio (visible y sin pisar label)
+  // ✅ Profesión o Actividad = Convenio (sin superponer)
   drawFit(convenioNombre, { x: 360.7, y: 377.5, size: 11, maxWidth: 220 }, true);
 
   drawFit(domicilio, { x: 110, y: 444.9, size: 10, maxWidth: 250 }, true);
@@ -419,12 +354,9 @@ caso que estos sean inexactos o erróneos"`;
   return await pdfDoc.save();
 }
 
-export async function generarDocumentoCredito(datos: DatosDocumento): Promise<Buffer> {
-  const bytes = await generarSolicitudIngresoPDF(datos);
-  return Buffer.from(bytes);
-}
-
-export function getNombreArchivoPDF(idCredito: number, convenio?: string | null): string {
-  const convenioStr = convenio?.toLowerCase().replace(/_/g, "-") || "base";
-  return `credito-${idCredito}-${convenioStr}.pdf`;
-}
+export const solicitudIngreso: PdfTemplate = {
+  id: "solicitud-ingreso",
+  label: "Solicitud de Ingreso",
+  filename: (d) => `solicitud-ingreso-${d.credito.id_credito}.pdf`,
+  render: async (d) => generarSolicitudIngresoPDF(d),
+};
