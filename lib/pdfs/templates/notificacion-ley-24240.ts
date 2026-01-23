@@ -160,8 +160,8 @@ function drawCopy(
 
   const ex = getExtras(datos);
 
-  // tasa anual (en el PDF)
-  const tasaServicioAnual = Number(datos.credito.tasa_interes);
+  // tasa anual (en el PDF) — fallback/hardcode a 115.00% si no viene o es 0
+  const tasaServicioAnual = Number(datos.credito.tasa_interes) || 115.0;
 
   // cuota: monto_total si viene; sino fallback
   const cuotaValor =

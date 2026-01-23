@@ -250,7 +250,8 @@ function drawCopy(
   const dni = dniFromCuit(a.cuit);
 
   // Tasa anual: uso credito.tasa_interes (si tu tasa está mensual, acá deberías convertir)
-  const tasaAnualPct = Number(c.tasa_interes);
+  // fallback/hardcode a 115.00% si no viene o es 0
+  const tasaAnualPct = Number(c.tasa_interes) || 115.0;
 
   const montoSolicitado = Number(c.monto);
   const cuotaMensual = extras.cuotaMensual;
