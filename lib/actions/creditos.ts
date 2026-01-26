@@ -22,10 +22,12 @@ function ajustarAlMes(base: Date, dia: number, regla: VencimientoRegla) {
 }
 
 function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla) {
-  // Siempre usar el mes siguiente (no el mes actual)
-  // Si hoy es 15/1 y el cierre es día 20, el primer vencimiento es 20/2
-  const mesProximo = addMonths(hoy, 1);
-  return ajustarAlMes(mesProximo, dia, regla);
+  // Regla: Si la fecha de emisión es después del día 15, el primer vencimiento
+  // debe ser 2 meses después. Si es antes del 15, es 1 mes después.
+  const diaEmision = hoy.getDate();
+  const mesesASumar = diaEmision > 15 ? 2 : 1;
+  const mesVencimiento = addMonths(hoy, mesesASumar);
+  return ajustarAlMes(mesVencimiento, dia, regla);
 }
 
 /* ───────── Helper para generar y guardar PDF ───────── */
@@ -137,10 +139,10 @@ export async function createCredito(formData: FormData) {
       const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
 
       // Interés prorrateado para la PRIMERA cuota:
-      // Se calcula el interés proporcional a los días reales hasta el primer vencimiento
-      // Si diasEntre < 30: se cobra menos interés (proporción de días/30)
-      // Si diasEntre > 30: se cobra más interés (proporción de días/30)
-      const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasEntre / 30);
+      // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
+      // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
+      const diasExtra = Math.max(0, diasEntre - 30);
+      const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
       // tasa efectiva mensual en decimal
       const iRate = tasaMensual; // ya definido como tasaMensualPercent/100
@@ -425,9 +427,10 @@ export async function importCreditosAction(formData: FormData) {
             Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia)
           );
 
-          // Interés prorrateado para la PRIMERA cuota (nueva regla):
+          // Interés prorrateado para la PRIMERA cuota:
+          // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
           const diasExtra = Math.max(0, diasEntre - 30);
-          const interesProrrateado = adjustedMonto * (tasaMensualPercent / 30) * (diasExtra / 100);
+          const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
           // tasa efectiva mensual en decimal
           const iRate = tasaMensual;

@@ -37,11 +37,14 @@ export function calcularCuotasCredito({
   // Monto final sobre el que se aplica interés = monto inicial + comision de gestión
   const adjustedMonto = monto * (1 + gestionAplicada);
 
-  // Primera fecha de vencimiento: siempre en el mes siguiente o posterior
-  // Si hoy es 15/1 y el cierre es día 20, el primer vencimiento es 20/2 (no 20/1)
+  // Primera fecha de vencimiento: depende del día de emisión
+  // Si emite después del día 15 → vencimiento 2 meses después
+  // Si emite día 15 o antes → vencimiento 1 mes después
+  const diaEmision = hoy.getDate();
+  const mesesASumar = diaEmision > 15 ? 2 : 1;
   let primerVenc = new Date(
     hoy.getFullYear(),
-    hoy.getMonth() + 1, // Siempre mes siguiente
+    hoy.getMonth() + mesesASumar,
     diaVencimiento
   );
 
@@ -52,38 +55,26 @@ export function calcularCuotasCredito({
     }
   }
 
-  // Fecha de cierre del mes actual (para calcular prorrateo)
-  let fechaCierre = new Date(
-    hoy.getFullYear(),
-    hoy.getMonth(),
-    diaVencimiento
-  );
-
-  if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
-    const ultimo = new Date(fechaCierre.getFullYear(), fechaCierre.getMonth() + 1, 0).getDate();
-    if (diaVencimiento > ultimo) {
-      fechaCierre.setDate(ultimo);
-    }
-  }
-
+  // Calcular días entre la fecha de emisión y el primer vencimiento
   const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const cierreSinHora = new Date(
-    fechaCierre.getFullYear(),
-    fechaCierre.getMonth(),
-    fechaCierre.getDate()
+  const primerVencSinHora = new Date(
+    primerVenc.getFullYear(),
+    primerVenc.getMonth(),
+    primerVenc.getDate()
   );
 
   const msDia = 1000 * 60 * 60 * 24;
-  // Calcular días solo hasta el cierre del mes actual
   const diasEntre = Math.max(
     0,
-    Math.round((cierreSinHora.getTime() - hoySinHora.getTime()) / msDia)
+    Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
   // Interés prorrateado para la PRIMERA cuota:
-  // Se calcula el interés proporcional a los días desde hoy hasta el cierre del mes actual
-  // El prorrateo se basa en los días del mes actual, NO en los días hasta el vencimiento
-  const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasEntre / 30);
+  // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
+  // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
+  // Ejemplo: Si emite el 22/01 y vence el 20/03 (58 días), diasExtra = 28, prorrateo = (28/30) * interés mensual
+  const diasExtra = Math.max(0, diasEntre - 30);
+  const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
   // Comisión de gestión total aplicada al inicio (monto * gestionPct)
   const comisionTotal = monto * gestionAplicada;

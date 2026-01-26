@@ -12,9 +12,10 @@ function ajustarAlMes(base, dia, regla) {
 }
 
 function primeraFechaVencimiento(hoy, dia, regla) {
-    const candidato = ajustarAlMes(hoy, dia, regla);
-    if (hoy.getTime() <= candidato.getTime()) return candidato;
-    return ajustarAlMes(addMonths(candidato, 1), dia, regla);
+    const diaEmision = hoy.getDate();
+    const mesesASumar = diaEmision > 15 ? 2 : 1;
+    const mesVencimiento = addMonths(hoy, mesesASumar);
+    return ajustarAlMes(mesVencimiento, dia, regla);
 }
 
 (async () => {
@@ -54,7 +55,7 @@ function primeraFechaVencimiento(hoy, dia, regla) {
         const diasEntre = Math.max(0, Math.round((primeraSinHora.getTime() - hoySinHora.getTime()) / msPorDia));
 
         const diasExtra = Math.max(0, diasEntre - 30);
-        const interesProrrateado = adjustedMonto * (tasaMensualPercent / 30) * (diasExtra / 100);
+        const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
         console.log('📅 Cálculo de prorrateo:');
         console.log('  - Hoy:', hoy.toISOString().slice(0, 10));
