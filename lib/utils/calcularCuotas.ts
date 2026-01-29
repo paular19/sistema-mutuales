@@ -96,10 +96,36 @@ export function calcularCuotasCredito({
   const primeraCuotaBruta = cuotaBruta + interesProrrateado;
 
   // Valores SIN aplicar retención comercializadora (valores brutos)
-  const primeraCuota = Math.round(primeraCuotaBruta * 100) / 100;
-  const cuotaRestante = Math.round(cuotaBruta * 100) / 100;
+  // Redondear primero
+  let primeraCuota = Math.round(primeraCuotaBruta * 100) / 100;
+  let cuotaRestante = Math.round(cuotaBruta * 100) / 100;
 
-  const totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
+  // Calcular total financiado inicial
+  let totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
+
+  // 🔹 REDONDEO A VALORES LIMPIOS: Redondear total al múltiplo de $10,000 más cercano
+  // Esto hace que el monto sea más "limpio" (ej: $1,496,515.95 → $1,500,000)
+  const multiplo = 10000;
+  const montoObjetivo = Math.ceil(totalFinanciado / multiplo) * multiplo;
+  const diferencia = montoObjetivo - totalFinanciado;
+
+  if (Math.abs(diferencia) > 0.01 && cuotas > 1) {
+    // Distribuir diferencia equitativamente entre cuotas restantes
+    const ajustePorCuota = Math.round((diferencia / (cuotas - 1)) * 100) / 100;
+
+    // Ajustar cuota restante
+    cuotaRestante = Math.round((cuotaRestante + ajustePorCuota) * 100) / 100;
+
+    // Recalcular total
+    totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
+
+    // Si aún hay pequeña diferencia, ajustar en la última cuota
+    const diferenciaFinal = montoObjetivo - totalFinanciado;
+    if (Math.abs(diferenciaFinal) > 0.01) {
+      cuotaRestante = Math.round((cuotaRestante + diferenciaFinal) * 100) / 100;
+      totalFinanciado = montoObjetivo;
+    }
+  }
 
   // Generar detalle de todas las cuotas con fechas de cierre
   const detalleCuotas: Array<{
