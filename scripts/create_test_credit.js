@@ -52,9 +52,9 @@ function primeraFechaVencimiento(hoy, dia, regla) {
         const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
         const primeraSinHora = new Date(primera_venc.getFullYear(), primera_venc.getMonth(), primera_venc.getDate());
         const msPorDia = 1000 * 60 * 60 * 24;
-        const diasEntre = Math.max(0, Math.round((primeraSinHora.getTime() - hoySinHora.getTime()) / msPorDia));
+        const diasEntre = Math.max(0, Math.round((primeraSinHora.getTime() - hoySinHora.getTime()) / msPorDia) - 1);
 
-        const diasExtra = Math.max(0, diasEntre - 30);
+        const diasExtra = Math.max(0, diasEntre - 31);
         const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
         console.log('📅 Cálculo de prorrateo:');

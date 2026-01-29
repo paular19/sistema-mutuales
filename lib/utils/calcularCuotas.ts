@@ -66,14 +66,14 @@ export function calcularCuotasCredito({
   const msDia = 1000 * 60 * 60 * 24;
   const diasEntre = Math.max(
     0,
-    Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia)
+    Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia) - 1
   );
 
   // Interés prorrateado para la PRIMERA cuota:
   // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
   // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
   // Ejemplo: Si emite el 22/01 y vence el 20/03 (58 días), diasExtra = 28, prorrateo = (28/30) * interés mensual
-  const diasExtra = Math.max(0, diasEntre - 30);
+  const diasExtra = Math.max(0, diasEntre - 31);
   const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
   // Comisión de gestión total aplicada al inicio (monto * gestionPct)

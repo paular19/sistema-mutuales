@@ -136,12 +136,12 @@ export async function createCredito(formData: FormData) {
       );
       const msPorDia = 1000 * 60 * 60 * 24;
       const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
-      const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
+      const diasEntre = Math.max(0, Math.round(diffMs / msPorDia) - 1);
 
       // Interés prorrateado para la PRIMERA cuota:
       // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
       // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
-      const diasExtra = Math.max(0, diasEntre - 30);
+      const diasExtra = Math.max(0, diasEntre - 31);
       const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
       // tasa efectiva mensual en decimal
@@ -424,12 +424,12 @@ export async function importCreditosAction(formData: FormData) {
           const msPorDia = 1000 * 60 * 60 * 24;
           const diasEntre = Math.max(
             0,
-            Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia)
+            Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia) - 1
           );
 
           // Interés prorrateado para la PRIMERA cuota:
           // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
-          const diasExtra = Math.max(0, diasEntre - 30);
+          const diasExtra = Math.max(0, diasEntre - 31);
           const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
 
           // tasa efectiva mensual en decimal
