@@ -138,11 +138,19 @@ export async function createCredito(formData: FormData) {
       const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
       const diasEntre = Math.max(0, Math.round(diffMs / msPorDia) - 1);
 
-      // Interés prorrateado para la PRIMERA cuota:
-      // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
-      // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
-      const diasExtra = Math.max(0, diasEntre - 31);
-      const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
+      // Cálculo de prorrateo (solo días extra más allá de 30):
+      // tasaMensual = tasaAnual * 30 / 360
+      // % = (tasaMensual / 30) × diasExtra
+      // agregado = adjustedMonto × (% / 100)
+      const diasExtra = Math.max(0, diasEntre - 30);
+      let interesProrrateado = 0;
+      if (diasExtra > 0) {
+        const tasaAnual = tasaMensualPercent * 12;
+        const tasaMensualNueva = (tasaAnual * 30) / 360;
+        const porcentaje = (tasaMensualNueva / 30) * diasExtra;
+        const porcentajeRedondeado = Math.round(porcentaje * 10000) / 10000;
+        interesProrrateado = Math.round(adjustedMonto * (porcentajeRedondeado / 100) * 100) / 100;
+      }
 
       // tasa efectiva mensual en decimal
       const iRate = tasaMensual; // ya definido como tasaMensualPercent/100
@@ -427,10 +435,19 @@ export async function importCreditosAction(formData: FormData) {
             Math.round((primerSinHora.getTime() - hoySinHora.getTime()) / msPorDia) - 1
           );
 
-          // Interés prorrateado para la PRIMERA cuota:
-          // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
-          const diasExtra = Math.max(0, diasEntre - 31);
-          const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
+          // Cálculo de prorrateo (solo días extra más allá de 30):
+          // tasaMensual = tasaAnual * 30 / 360
+          // % = (tasaMensual / 30) × diasExtra
+          // agregado = adjustedMonto × (% / 100)
+          const diasExtra = Math.max(0, diasEntre - 30);
+          let interesProrrateado = 0;
+          if (diasExtra > 0) {
+            const tasaAnual = tasaMensualPercent * 12;
+            const tasaMensualNueva = (tasaAnual * 30) / 360;
+            const porcentaje = (tasaMensualNueva / 30) * diasExtra;
+            const porcentajeRedondeado = Math.round(porcentaje * 10000) / 10000;
+            interesProrrateado = Math.round(adjustedMonto * (porcentajeRedondeado / 100) * 100) / 100;
+          }
 
           // tasa efectiva mensual en decimal
           const iRate = tasaMensual;

@@ -69,12 +69,21 @@ export function calcularCuotasCredito({
     Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia) - 1
   );
 
-  // Interés prorrateado para la PRIMERA cuota:
-  // Solo se prorratean los días EXTRA más allá de 30 (un mes estándar)
-  // La cuota base ya incluye 30 días de interés, el prorrateo es por los días adicionales
-  // Ejemplo: Si emite el 22/01 y vence el 20/03 (58 días), diasExtra = 28, prorrateo = (28/30) * interés mensual
-  const diasExtra = Math.max(0, diasEntre - 31);
-  const interesProrrateado = adjustedMonto * (tasaMensualPercent / 100) * (diasExtra / 30);
+  // Cálculo de prorrateo (solo días extra más allá de 30):
+  // tasaMensual = tasaAnual * 30 / 360
+  // % = (tasaMensual / 30) × diasExtra
+  // agregado = adjustedMonto × (% / 100)
+  const diasExtra = Math.max(0, diasEntre - 30);
+  let interesProrrateado = 0;
+  if (diasExtra > 0) {
+    // Usar más precisión en los cálculos
+    const tasaAnual = tasaMensualPercent * 12;
+    const tasaMensualNueva = (tasaAnual * 30) / 360;
+    const porcentaje = (tasaMensualNueva / 30) * diasExtra;
+    // Redondear el porcentaje a 4 decimales antes de aplicar
+    const porcentajeRedondeado = Math.round(porcentaje * 10000) / 10000;
+    interesProrrateado = Math.round(adjustedMonto * (porcentajeRedondeado / 100) * 100) / 100;
+  }
 
   // Comisión de gestión total aplicada al inicio (monto * gestionPct)
   const comisionTotal = monto * gestionAplicada;
@@ -103,29 +112,11 @@ export function calcularCuotasCredito({
   // Calcular total financiado inicial
   let totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
 
-  // 🔹 REDONDEO A VALORES LIMPIOS: Redondear total al múltiplo de $10,000 más cercano
-  // Esto hace que el monto sea más "limpio" (ej: $1,496,515.95 → $1,500,000)
-  const multiplo = 10000;
-  const montoObjetivo = Math.ceil(totalFinanciado / multiplo) * multiplo;
-  const diferencia = montoObjetivo - totalFinanciado;
-
-  if (Math.abs(diferencia) > 0.01 && cuotas > 1) {
-    // Distribuir diferencia equitativamente entre cuotas restantes
-    const ajustePorCuota = Math.round((diferencia / (cuotas - 1)) * 100) / 100;
-
-    // Ajustar cuota restante
-    cuotaRestante = Math.round((cuotaRestante + ajustePorCuota) * 100) / 100;
-
-    // Recalcular total
-    totalFinanciado = Math.round((primeraCuota + cuotaRestante * (cuotas - 1)) * 100) / 100;
-
-    // Si aún hay pequeña diferencia, ajustar en la última cuota
-    const diferenciaFinal = montoObjetivo - totalFinanciado;
-    if (Math.abs(diferenciaFinal) > 0.01) {
-      cuotaRestante = Math.round((cuotaRestante + diferenciaFinal) * 100) / 100;
-      totalFinanciado = montoObjetivo;
-    }
-  }
+  // REDONDEO DESHABILITADO - Se mantienen valores exactos
+  // const multiplo = 10000;
+  // const montoObjetivo = Math.ceil(totalFinanciado / multiplo) * multiplo;
+  // const diferencia = montoObjetivo - totalFinanciado;
+  // ...ajustes...
 
   // Generar detalle de todas las cuotas con fechas de cierre
   const detalleCuotas: Array<{
