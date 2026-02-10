@@ -1,9 +1,24 @@
+function inferFractionDigits(amount: number): number {
+  if (!Number.isFinite(amount)) return 0;
+
+  const rounded = Math.round(amount * 1e6) / 1e6;
+  const str = rounded.toString();
+  const dotIndex = str.indexOf(".");
+
+  if (dotIndex === -1) return 0;
+
+  const decimals = str.slice(dotIndex + 1).replace(/0+$/, "");
+  return decimals.length;
+}
+
 export function formatCurrency(amount: number): string {
+  const fractionDigits = inferFractionDigits(amount);
+
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(amount);
 }
 

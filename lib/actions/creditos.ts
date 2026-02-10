@@ -6,9 +6,6 @@ import * as XLSX from "xlsx";
 import { addMonths } from "date-fns";
 import { EstadoCredito, EstadoCuota, VencimientoRegla } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { generarDocumentoCredito } from "@/lib/utils/documento-credito-pdflib";
-import { writeFile } from "fs/promises";
-import { join } from "path";
 
 /* ───────── Helpers de fechas / cálculos ───────── */
 function ultimoDiaDelMes(d: Date) {
@@ -30,37 +27,6 @@ function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla
   return ajustarAlMes(mesVencimiento, dia, regla);
 }
 
-/* ───────── Helper para generar y guardar PDF ───────── */
-async function generarYGuardarPDFCredito(credito: any) {
-  try {
-    const pdfBuffer = await generarDocumentoCredito({
-      credito: {
-        id_credito: credito.id_credito,
-        monto: credito.monto,
-        numero_cuotas: credito.numero_cuotas,
-        tasa_interes: credito.tasa_interes,
-        fecha_creacion: credito.fecha_creacion,
-        primera_venc: credito.primera_venc,
-        producto: credito.producto,
-      },
-      asociado: credito.asociado,
-      mutual: credito.mutual,
-    });
-
-    // Guardar en public/documentos/creditos
-    const dirPath = join(process.cwd(), "public", "documentos", "creditos");
-    const fileName = `credito-${credito.id_credito}.pdf`;
-    const filePath = join(dirPath, fileName);
-
-    // Crear directorio si no existe
-    await writeFile(filePath, pdfBuffer);
-
-    console.log(`✅ PDF generado: ${fileName}`);
-  } catch (error) {
-    console.error("❌ Error generando PDF:", error);
-    throw error;
-  }
-}
 
 /* ──────────────────────────────────────────────
  *  🔹 CREAR CRÉDITO (individual)
@@ -259,30 +225,65 @@ export async function createCredito(formData: FormData) {
         });
       }
 
-      // 🎯 GENERAR PDF DEL CRÉDITO (background - no bloquea)
-      // Traer datos completos para el PDF
-      const creditoCompleto = await tx.credito.findUnique({
-        where: { id_credito: credito.id_credito },
-        include: {
-          asociado: true,
-          producto: true,
-          mutual: true,
-        },
-      });
-
-      // Generar PDF en background (sin await para no bloquear)
-      if (creditoCompleto) {
-        generarYGuardarPDFCredito(creditoCompleto).catch((err) => {
-          console.error("⚠️ Error al generar PDF de crédito:", err);
-          // No fallar toda la operación si falla el PDF
-        });
-      }
-
       return { success: true, id_credito: credito.id_credito };
     });
   } catch (err) {
     console.error("❌ Error al crear crédito:", err);
     return { error: "Error inesperado al crear el crédito." };
+  }
+}
+
+/* ──────────────────────────────────────────────
+ *  🔹 ANULAR CRÉDITO (sin pagos registrados)
+ * ────────────────────────────────────────────── */
+export async function anularCredito(id_credito: number) {
+  try {
+    const info = await getServerUser();
+    if (!info) return { error: "Usuario no autenticado" };
+
+    const mutualId = info.mutualId;
+    const clerkId = info.userId;
+
+    if (!mutualId) return { error: "Mutual ID no encontrado" };
+    if (!Number.isFinite(id_credito)) return { error: "ID de crédito inválido" };
+
+    return await withRLS(mutualId, clerkId, async (tx) => {
+      const credito = await tx.credito.findUnique({
+        where: { id_credito },
+        select: { estado: true },
+      });
+
+      if (!credito) return { error: "Crédito no encontrado" };
+      if (credito.estado === EstadoCredito.cancelado) {
+        return { error: "El crédito ya está cancelado" };
+      }
+
+      const pagoExistente = await tx.pagoCuota.findFirst({
+        where: { cuota: { id_credito } },
+        select: { id_pago_cuota: true },
+      });
+
+      if (pagoExistente) {
+        return { error: "No se puede anular: el crédito tiene pagos registrados" };
+      }
+
+      await tx.credito.update({
+        where: { id_credito },
+        data: {
+          estado: EstadoCredito.cancelado,
+          cuotas_pendientes: 0,
+          saldo_capital_actual: 0,
+          usuario_modificacion: clerkId,
+        },
+      });
+
+      revalidatePath("/dashboard/creditos");
+
+      return { success: true };
+    });
+  } catch (err) {
+    console.error("❌ Error al anular crédito:", err);
+    return { error: "Error inesperado al anular el crédito." };
   }
 }
 

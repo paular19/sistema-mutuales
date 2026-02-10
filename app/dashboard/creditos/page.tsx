@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CreditosTable } from "@/components/creditos/creditos-table";
 import { getCreditos } from "@/lib/queries/creditos";
+import { anularCredito } from "@/lib/actions/creditos";
 
 interface CreditosPageSearchParams {
   nombre?: string;
@@ -42,6 +43,7 @@ export default async function CreditosPage(props: {
         creditos={creditos}
         totalPages={totalPages}
         currentPage={currentPage}
+        onAnularCredito={anularCredito}
       />
     </div>
   );

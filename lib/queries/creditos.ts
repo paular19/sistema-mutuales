@@ -33,7 +33,7 @@ export async function getCreditos(params: any = {}) {
       .filter(Boolean);
 
     const where: any = {
-      ...(estado ? { estado } : {}),
+      ...(estado ? { estado } : { estado: { not: "cancelado" } }),
 
       ...(producto
         ? {
@@ -78,6 +78,10 @@ export async function getCreditos(params: any = {}) {
               estado: true,
               monto_capital: true,
               monto_interes: true,
+              pagoCuotas: {
+                select: { id_pago_cuota: true },
+                take: 1,
+              },
             },
           },
         },
@@ -98,10 +102,15 @@ export async function getCreditos(params: any = {}) {
         (q: any) => q.estado === "pendiente"
       ).length;
 
+      const hasPagos = c.cuotas.some(
+        (q: any) => (q.pagoCuotas?.length ?? 0) > 0
+      );
+
       return {
         ...c,
         cuotas_pagadas: cuotasPagadas,
         cuotas_pendientes: cuotasPendientes,
+        hasPagos,
       };
     });
 

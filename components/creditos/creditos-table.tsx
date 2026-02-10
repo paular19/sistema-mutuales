@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableHeader,
@@ -13,8 +25,9 @@ import {
 import { formatCurrency } from "@/lib/utils/format";
 import { CreditosFilters } from "./creditos-filters";
 import { Pagination } from "@/components/ui/pagination";
-import { FileText } from "lucide-react";
-import { useState } from "react";
+import { FileText, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 interface Credito {
   id_credito: number;
@@ -24,6 +37,7 @@ interface Credito {
   cuotas_pagadas: number;
   cuotas_pendientes: number;
   estado: string;
+  hasPagos?: boolean;
   asociado?: {
     nombre: string | null;
     apellido: string | null;
@@ -38,10 +52,20 @@ interface CreditosTableProps {
   creditos: Credito[];
   totalPages: number;
   currentPage: number;
+  onAnularCredito: (id_credito: number) => Promise<{ success?: boolean; error?: string }>;
 }
 
-export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTableProps) {
+export function CreditosTable({
+  creditos,
+  totalPages,
+  currentPage,
+  onAnularCredito,
+}: CreditosTableProps) {
+  const router = useRouter();
   const [loadingPdf, setLoadingPdf] = useState<number | null>(null);
+  const [loadingAnular, setLoadingAnular] = useState<number | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [openId, setOpenId] = useState<number | null>(null);
 
   const handleDescargarPDF = async (idCredito: number) => {
     try {
@@ -121,7 +145,7 @@ export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTab
                   {c.asociado?.razon_social
                     ? c.asociado.razon_social
                     : `${c.asociado?.apellido ?? ""} ${c.asociado?.nombre ?? ""}`.trim() ||
-                      "(Sin nombre)"}
+                    "(Sin nombre)"}
                 </TableCell>
 
                 <TableCell>{c.producto?.nombre}</TableCell>
@@ -151,6 +175,66 @@ export function CreditosTable({ creditos, totalPages, currentPage }: CreditosTab
                       <FileText className="w-4 h-4" />
                       {loadingPdf === c.id_credito ? "..." : "PDFs"}
                     </Button>
+
+                    <AlertDialog
+                      open={openId === c.id_credito}
+                      onOpenChange={(open) => setOpenId(open ? c.id_credito : null)}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          disabled={
+                            c.estado === "cancelado" ||
+                            c.hasPagos ||
+                            loadingAnular === c.id_credito ||
+                            isPending
+                          }
+                          title={
+                            c.hasPagos
+                              ? "No se puede anular: hay pagos registrados"
+                              : c.estado === "cancelado"
+                                ? "Crédito ya cancelado"
+                                : "Anular crédito"
+                          }
+                          aria-label="Anular crédito"
+                        >
+                          {loadingAnular === c.id_credito ? "..." : <Trash2 className="w-4 h-4" />}
+                        </Button>
+                      </AlertDialogTrigger>
+
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar anulación</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. El crédito quedará cancelado.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              setLoadingAnular(c.id_credito);
+                              startTransition(async () => {
+                                const res = await onAnularCredito(c.id_credito);
+                                if (res?.error) {
+                                  toast.error(res.error);
+                                } else {
+                                  toast.success("Crédito anulado");
+                                  router.refresh();
+                                }
+                                setLoadingAnular(null);
+                                setOpenId(null);
+                              });
+                            }}
+                            disabled={isPending}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                          >
+                            {loadingAnular === c.id_credito ? "Procesando..." : "Anular"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
