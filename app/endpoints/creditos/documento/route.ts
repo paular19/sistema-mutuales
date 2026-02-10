@@ -6,28 +6,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
-import { PrismaClient, Convenio } from "@prisma/client";
+import { Convenio } from "@prisma/client";
 
 import { generarUno, generarTodosZip } from "@/lib/pdfs/generate";
 import type { DatosDocumento } from "@/lib/pdfs/types";
 
-/**
- * Convierte string (RAW SQL) -> enum Convenio (Prisma)
- */
-function asConvenio(v: string | null): Convenio | null {
-  if (!v) return null;
-  const s = v.trim().toUpperCase();
-
-  if (s === "TRES_DE_ABRIL") return Convenio.TRES_DE_ABRIL;
-  if (s === "CENTRO") return Convenio.CENTRO;
-  if (s === "CLINICA_SAN_RAFAEL") return Convenio.CLINICA_SAN_RAFAEL;
-
-  return null;
-}
-
 export async function GET(req: Request) {
-  let prismaNoRLS: PrismaClient | null = null;
-
   try {
     const serverUser = await getServerUser();
     if (!serverUser) {
@@ -83,18 +67,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // ✅ Prisma sin RLS para leer convenio "crudo"
-    prismaNoRLS = new PrismaClient();
-
-    const rows = await prismaNoRLS.$queryRaw<Array<{ convenio: string | null }>>`
-      SELECT convenio::text AS convenio
-      FROM asociados
-      WHERE id_asociado = ${creditoCompleto.id_asociado}
-      LIMIT 1
-    `;
-
-    const convenioAsociadoRaw = rows[0]?.convenio ?? null;
-    const convenioAsociado = asConvenio(convenioAsociadoRaw);
+    const convenioAsociado = creditoCompleto.asociado.convenio ?? null;
 
     // ✅ Datos unificados para TODOS los templates
     const datosDocumento: DatosDocumento = {
@@ -109,7 +82,7 @@ export async function GET(req: Request) {
       },
       asociado: {
         ...creditoCompleto.asociado,
-        convenio: convenioAsociado,
+        convenio: convenioAsociado as Convenio | null,
 
         fecha_nac: creditoCompleto.asociado.fecha_nac
           ? creditoCompleto.asociado.fecha_nac.toISOString().split("T")[0]
@@ -177,9 +150,5 @@ export async function GET(req: Request) {
       { error: "Error al generar documento" },
       { status: 500 }
     );
-  } finally {
-    if (prismaNoRLS) {
-      await prismaNoRLS.$disconnect();
-    }
   }
 }
