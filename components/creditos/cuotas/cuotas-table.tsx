@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { CuotasFilters } from "./cuotas-filters";
 import { usePagoSelection } from "@/hooks/usePagoSelection";
 
@@ -120,14 +120,14 @@ export function CuotasTable({ cuotas, comisionGestion = 0 }: CuotasTableProps) {
                       c.estadoCalc === "pagada"
                         ? "Esta cuota ya fue pagada"
                         : c.estadoCalc === "parcial"
-                        ? "Pago parcial registrado"
-                        : "Seleccionar para generar recibo"
+                          ? "Pago parcial registrado"
+                          : "Seleccionar para generar recibo"
                     }
                   />
                 </TableCell>
 
                 <TableCell>{c.numero_cuota}</TableCell>
-                <TableCell>{formatDate(new Date(c.fecha_vencimiento))}</TableCell>
+                <TableCell>{formatDateUtc(new Date(c.fecha_vencimiento))}</TableCell>
                 <TableCell className="text-right">{formatCurrency(c.monto_capital)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(c.monto_interes)}</TableCell>
                 <TableCell className="text-right">

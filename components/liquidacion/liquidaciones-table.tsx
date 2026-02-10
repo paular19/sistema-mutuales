@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { EstadoCuota } from "@prisma/client";
 import type { LiquidacionCuotaUI } from "./liquidaciones-page-client";
 
@@ -65,7 +65,7 @@ export function LiquidacionesTable({ filas }: LiquidacionesTableProps) {
                 <TableCell>{f.producto}</TableCell>
                 <TableCell>{f.numero_credito}</TableCell>
                 <TableCell>{f.numero_cuota}</TableCell>
-                <TableCell>{formatDate(fechaVenc)}</TableCell>
+                <TableCell>{formatDateUtc(fechaVenc)}</TableCell>
                 <TableCell className="text-right">
                   {formatCurrency(f.monto_total)}
                 </TableCell>

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { EstadoCuota } from "@prisma/client";
 
 interface CuotaRow {
@@ -79,7 +79,7 @@ export function CancelacionesTable({
               <TableCell>{f.producto}</TableCell>
               <TableCell>{f.numero_credito}</TableCell>
               <TableCell>{f.numero_cuota}</TableCell>
-              <TableCell>{formatDate(new Date(f.fecha_vencimiento))}</TableCell>
+              <TableCell>{formatDateUtc(new Date(f.fecha_vencimiento))}</TableCell>
 
               <TableCell className="text-right">
                 {formatCurrency(f.monto_total)}

@@ -26,6 +26,10 @@ export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('es-AR').format(date);
 }
 
+export function formatDateUtc(date: Date): string {
+  return new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC' }).format(date);
+}
+
 export function formatDateTime(date: Date): string {
   return new Intl.DateTimeFormat('es-AR', {
     year: 'numeric',

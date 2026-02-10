@@ -1,5 +1,5 @@
 import { getCuotaDetalle } from "@/lib/queries/cuotas";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatDateUtc } from "@/lib/utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -48,8 +48,8 @@ export default async function DetalleCuotaPage(props: {
                 estadoCalc === "pagada"
                   ? "bg-emerald-600"
                   : estadoCalc === "vencida"
-                  ? "bg-red-600"
-                  : "bg-gray-500"
+                    ? "bg-red-600"
+                    : "bg-gray-500"
               }
             >
               {estadoCalc.toUpperCase()}
@@ -57,7 +57,7 @@ export default async function DetalleCuotaPage(props: {
           </div>
           <div className="flex justify-between">
             <span>Fecha de vencimiento:</span>
-            <span>{formatDate(cuota.fecha_vencimiento)}</span>
+            <span>{formatDateUtc(cuota.fecha_vencimiento)}</span>
           </div>
           <div className="flex justify-between">
             <span>Capital:</span>

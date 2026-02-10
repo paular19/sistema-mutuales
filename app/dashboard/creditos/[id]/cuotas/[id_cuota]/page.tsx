@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatDateUtc } from "@/lib/utils/format";
 import { getCuotaDetalle } from "@/lib/queries/cuotas";
 
 export default async function CuotaDetallePage(props: {
@@ -22,7 +22,7 @@ export default async function CuotaDetallePage(props: {
 
   const { cuota } = await getCuotaDetalle(idNum);
   if (!cuota) return <p className="text-red-500">Cuota no encontrada.</p>;
-  
+
   return (
     <div className="space-y-8">
       {/* Encabezado */}
@@ -54,14 +54,14 @@ export default async function CuotaDetallePage(props: {
             cuota.estadoCalc === "pagada"
               ? "bg-emerald-600"
               : cuota.estadoCalc === "vencida"
-              ? "bg-red-600"
-              : "bg-gray-400"
+                ? "bg-red-600"
+                : "bg-gray-400"
           }
         >
           {cuota.estadoCalc.toUpperCase()}
         </Badge>
         <p className="text-sm text-muted-foreground">
-          Vencimiento: {formatDate(new Date(cuota.fecha_vencimiento))}
+          Vencimiento: {formatDateUtc(new Date(cuota.fecha_vencimiento))}
         </p>
       </div>
 
