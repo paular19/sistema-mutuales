@@ -68,7 +68,11 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       gestionPct: productoSeleccionado.comision_gestion ?? 7.816712,
       diaVencimiento: productoSeleccionado.dia_vencimiento,
       reglaVencimiento: productoSeleccionado.regla_vencimiento,
-      fechaOtorgamiento: fechaCreacion ? new Date(fechaCreacion) : new Date(),
+      // Parsear fecha manualmente para evitar bug de timezone
+      // (new Date("2026-01-22") es UTC, getDate() da día distinto en Argentina)
+      fechaOtorgamiento: fechaCreacion
+        ? (() => { const [y, m, d] = fechaCreacion.split('-').map(Number); return new Date(y, m - 1, d); })()
+        : new Date(),
     });
   }, [monto, cantidadCuotas, productoSeleccionado, fechaCreacion]);
 

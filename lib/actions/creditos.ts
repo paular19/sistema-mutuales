@@ -68,7 +68,16 @@ export async function createCredito(formData: FormData) {
 
       /* 🔹 Fecha de creación del crédito */
       const fechaCreacionStr = formData.get("fecha_creacion");
-      const hoy = fechaCreacionStr ? new Date(String(fechaCreacionStr)) : new Date();
+      // IMPORTANTE: new Date("2026-01-22") parsea como UTC, lo que causa
+      // que getDate() devuelva un día distinto según timezone.
+      // Parseamos manualmente para garantizar fecha local correcta.
+      let hoy: Date;
+      if (fechaCreacionStr) {
+        const [y, m, d] = String(fechaCreacionStr).split('-').map(Number);
+        hoy = new Date(y, m - 1, d);
+      } else {
+        hoy = new Date();
+      }
 
       /* ──────────────────────────────────────────────
        *  🧮 Parámetros financieros
