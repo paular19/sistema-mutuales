@@ -66,7 +66,7 @@ export function calcularCuotasCredito({
   const msDia = 1000 * 60 * 60 * 24;
   const diasEntre = Math.max(
     0,
-    Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia) - 1
+    Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
   // Cálculo de prorrateo (solo días extra más allá de 30):
