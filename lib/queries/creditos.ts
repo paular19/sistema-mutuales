@@ -2,7 +2,6 @@
 
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
-import { calcularCuotasCredito } from "@/lib/utils/calcularCuotas";
 
 /**
  * 🔹 Obtener créditos con filtros + paginación usando RLS real
@@ -71,7 +70,7 @@ export async function getCreditos(params: any = {}) {
               tipo_persona: true,
             },
           },
-          producto: { select: { nombre: true } },
+          producto: { select: { nombre: true, comision_comerc: true, comision_gestion: true } },
 
           // 🔥 TRAEMOS TODAS LAS CUOTAS, PERO SOLO LO NECESARIO
           cuotas: {
@@ -107,31 +106,11 @@ export async function getCreditos(params: any = {}) {
         (q: any) => (q.pagoCuotas?.length ?? 0) > 0
       );
 
-      // calcular preview usando la misma lógica que el formulario (sin aplicar retenciones por comercializadora)
-      let preview: any = null;
-      try {
-        preview = calcularCuotasCredito({
-          monto: c.monto,
-          cuotas: c.numero_cuotas,
-          tasaMensual: c.tasa_interes,
-          comisionPct: c.producto?.comision_comerc ?? 3,
-          gestionPct: c.producto?.comision_gestion ?? 7.816712,
-          diaVencimiento: c.dia_vencimiento,
-          reglaVencimiento: c.regla_vencimiento,
-          fechaOtorgamiento: c.fecha_creacion ? new Date(c.fecha_creacion) : undefined,
-        });
-      } catch (err) {
-        preview = null;
-      }
-
       return {
         ...c,
         cuotas_pagadas: cuotasPagadas,
         cuotas_pendientes: cuotasPendientes,
         hasPagos,
-        // valores de preview para que la UI pueda mostrar lo esperado por el formulario
-        preview_totalFinanciado: preview?.totalFinanciado ?? null,
-        preview_montoFinal: preview?.montoFinal ?? null,
       };
     });
 

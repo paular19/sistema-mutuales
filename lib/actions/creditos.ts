@@ -79,7 +79,7 @@ export async function createCredito(formData: FormData) {
       const tasaMensual = tasaMensualPercent / 100;
 
       // comisión de gestión (porcentaje) aplicada al monto inicial. Por defecto 7.816712% si no está definida
-      const gestionPct = producto.comision_gestion && producto.comision_gestion > 0 ? producto.comision_gestion : 7.816712;
+      const gestionPct = producto.comision_gestion ?? 7.816712;
 
       // Monto final sobre el que se aplicarán los intereses = monto inicial + comisión de gestión
       const adjustedMonto = monto * (1 + gestionPct / 100);
@@ -413,7 +413,7 @@ export async function importCreditosAction(formData: FormData) {
           const tasaMensual = tasaMensualPercent / 100;
 
           // comisión de gestión (porcentaje) aplicada al monto inicial. Por defecto 7.816712%
-          const gestionPct = producto.comision_gestion && producto.comision_gestion > 0 ? producto.comision_gestion : 7.816712;
+          const gestionPct = producto.comision_gestion ?? 7.816712;
 
           const adjustedMonto = monto * (1 + gestionPct / 100);
 

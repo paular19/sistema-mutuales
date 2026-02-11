@@ -46,7 +46,6 @@ interface Credito {
     convenio?: string | null;
   };
   producto?: { nombre: string | null };
-  preview_totalFinanciado?: number | null;
 }
 
 interface CreditosTableProps {
@@ -151,7 +150,7 @@ export function CreditosTable({
 
                 <TableCell>{c.producto?.nombre}</TableCell>
                 <TableCell>{formatCurrency(c.monto)}</TableCell>
-                <TableCell>{formatCurrency(c.preview_totalFinanciado ?? c.saldo_capital_inicial)}</TableCell>
+                <TableCell>{formatCurrency(c.saldo_capital_inicial)}</TableCell>
                 <TableCell>{formatCurrency(c.saldo_capital_actual)}</TableCell>
                 <TableCell>{c.cuotas_pagadas}</TableCell>
                 <TableCell>{c.cuotas_pendientes}</TableCell>
