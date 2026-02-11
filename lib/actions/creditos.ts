@@ -185,6 +185,30 @@ export async function createCredito(formData: FormData) {
         0
       );
 
+      // 🔍 DEBUG: logear todos los valores intermedios para diagnosticar diferencia con preview
+      console.log("🔍 DEBUG createCredito", JSON.stringify({
+        monto,
+        numeroCuotas,
+        productoId: id_producto,
+        productoNombre: producto.nombre,
+        comision_gestion_raw: producto.comision_gestion,
+        comision_comerc_raw: producto.comision_comerc,
+        gestionPct,
+        tasaMensualPercent,
+        adjustedMonto,
+        diasEntre,
+        diasExtra,
+        interesProrrateado,
+        cuotaBruta,
+        primeraCuotaBruta,
+        primeraCuotaRedondeada: Math.round(primeraCuotaBruta * 100) / 100,
+        cuotaRestanteRedondeada: Math.round(cuotaBruta * 100) / 100,
+        saldoInicial,
+        totalFinanciadoFormula: Math.round((Math.round(primeraCuotaBruta * 100) / 100 + Math.round(cuotaBruta * 100) / 100 * (numeroCuotas - 1)) * 100) / 100,
+        fecha_hoy: hoy.toISOString(),
+        primera_venc: primera_venc.toISOString(),
+      }, null, 2));
+
       /* ──────────────────────────────────────────────
        *  💾 Crear crédito
        * ────────────────────────────────────────────── */
@@ -225,7 +249,21 @@ export async function createCredito(formData: FormData) {
         });
       }
 
-      return { success: true, id_credito: credito.id_credito };
+      return {
+        success: true,
+        id_credito: credito.id_credito,
+        debug: {
+          gestionPct,
+          comision_gestion_raw: producto.comision_gestion,
+          adjustedMonto: Math.round(adjustedMonto * 100) / 100,
+          cuotaBruta: Math.round(cuotaBruta * 100) / 100,
+          primeraCuota: Math.round(primeraCuotaBruta * 100) / 100,
+          interesProrrateado,
+          saldoInicial: Math.round(saldoInicial * 100) / 100,
+          diasEntre,
+          diasExtra,
+        },
+      };
     });
   } catch (err) {
     console.error("❌ Error al crear crédito:", err);
