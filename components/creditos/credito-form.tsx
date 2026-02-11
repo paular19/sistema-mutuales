@@ -76,26 +76,6 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
     });
   }, [monto, cantidadCuotas, productoSeleccionado, fechaCreacion]);
 
-  // 🔍 DEBUG: logear params y resultado del preview en consola del browser
-  if (calculo && productoSeleccionado) {
-    console.log("🔍 DEBUG preview form", {
-      monto: Number(monto),
-      cuotas: Number(cantidadCuotas),
-      gestionPct_input: productoSeleccionado.comision_gestion,
-      gestionPct_used: productoSeleccionado.comision_gestion ?? 7.816712,
-      comision_comerc: productoSeleccionado.comision_comerc,
-      tasa_interes: productoSeleccionado.tasa_interes,
-      fechaOtorgamiento: fechaCreacion,
-      fechaOtorgamientoDate: fechaCreacion ? new Date(fechaCreacion).toISOString() : "now",
-      diasEntre: calculo.diasEntre,
-      adjustedMonto: calculo.montoFinal,
-      primeraCuota: calculo.primeraCuota,
-      cuotaRestante: calculo.cuotaRestante,
-      totalFinanciado: calculo.totalFinanciado,
-      interesProrrateado: calculo.interesProrrateado,
-    });
-  }
-
 
   /* ----------------------------------------
      🔹 Envío del formulario (con toast + redirect)
@@ -112,10 +92,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       }
 
       toast.success("Crédito creado", {
-        description: res.debug
-          ? `Saldo inicial guardado: $${res.debug.saldoInicial} | gestión: ${res.debug.gestionPct}% (raw: ${res.debug.comision_gestion_raw}) | adjustedMonto: $${res.debug.adjustedMonto} | 1ra cuota: $${res.debug.primeraCuota} | cuota: $${res.debug.cuotaBruta} | prorrateo: $${res.debug.interesProrrateado} | diasEntre: ${res.debug.diasEntre} | diasExtra: ${res.debug.diasExtra}`
-          : "El crédito fue generado correctamente.",
-        duration: 30000,
+        description: "El crédito fue generado correctamente.",
       });
 
       router.push("/dashboard/creditos");
