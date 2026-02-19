@@ -224,6 +224,7 @@
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db/prisma";
 import { getServerUser } from "@/lib/auth/get-server-user";
+import { withRLS } from "@/lib/db/with-rls";
 import { EstadoCredito, EstadoCuota, VencimientoRegla } from "@prisma/client";
 
 const SOCIOS_AUTORIZADOS = new Set(
@@ -471,185 +472,186 @@ export async function importHistoricosCreditosAction(formData: FormData) {
 
   console.log(`📦 Créditos detectados: ${grupos.size}`);
 
-  const asociadosMutual = await prisma.asociado.findMany({
-    where: { id_mutual: mutualId },
-    select: {
-      id_asociado: true,
-      nombre: true,
-      apellido: true,
-      razon_social: true,
-    },
-  });
-
-  const asociadosById = new Map<number, AsociadoLite>();
-  const asociadosByNombre = new Map<string, AsociadoLite>();
-
-  for (const asociado of asociadosMutual) {
-    asociadosById.set(asociado.id_asociado, asociado);
-    const nombreNormalizado = normalizeText(getAsociadoNombreCompleto(asociado));
-    if (nombreNormalizado && !asociadosByNombre.has(nombreNormalizado)) {
-      asociadosByNombre.set(nombreNormalizado, asociado);
-    }
-  }
-
-  async function getOrCreateProducto(nombre: string, first: Row) {
-    const nombreFinal = nombre.trim() || "Producto importado";
-    const exist = await prisma.producto.findFirst({
-      where: {
-        id_mutual: mutualId,
-        nombre: { equals: nombreFinal, mode: "insensitive" },
+  return withRLS(mutualId, info.userId, async (tx) => {
+    const asociadosMutual = await tx.asociado.findMany({
+      where: { id_mutual: mutualId },
+      select: {
+        id_asociado: true,
+        nombre: true,
+        apellido: true,
+        razon_social: true,
       },
     });
-    if (exist) return exist;
 
-    return prisma.producto.create({
-      data: {
-        id_mutual: mutualId,
-        nombre: nombreFinal,
-        tasa_interes: 0,
-        dia_vencimiento: first.fechaven?.getDate() ?? 1,
-        regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
-        comision_comerc: 0,
-        comision_gestion: 0,
-      },
-    });
-  }
+    const asociadosById = new Map<number, AsociadoLite>();
+    const asociadosByNombre = new Map<string, AsociadoLite>();
 
-  let creditosCreados = 0;
-  let cuotasCreadas = 0;
-  let cuotasIgnoradas = 0;
-  let creditosOmitidosNoAutorizados = 0;
-  let creditosOmitidosSinAsociado = 0;
-  let creditosOmitidosOtraMutual = 0;
-  const hoy = new Date();
-
-  for (const [codigo_externo, filas] of Array.from(grupos.entries())) {
-    const ordenadas = [...filas].sort((a, b) => a.nrocuo - b.nrocuo);
-    const first = ordenadas[0];
-    const conceptoConValor =
-      ordenadas.find((row) => normalizeText(row.concepto).length > 0)?.concepto ??
-      first.concepto;
-    const nombreConcepto = normalizeText(conceptoConValor);
-
-    if (!first.fechaven) {
-      console.log(`⛔ Crédito ${codigo_externo} SALTEADO → sin fecha`);
-      continue;
+    for (const asociado of asociadosMutual) {
+      asociadosById.set(asociado.id_asociado, asociado);
+      const nombreNormalizado = normalizeText(getAsociadoNombreCompleto(asociado));
+      if (nombreNormalizado && !asociadosByNombre.has(nombreNormalizado)) {
+        asociadosByNombre.set(nombreNormalizado, asociado);
+      }
     }
 
-    let asociado = asociadosById.get(first.codigo) ?? null;
-    if (!asociado && nombreConcepto) {
-      asociado = asociadosByNombre.get(nombreConcepto) ?? null;
+    async function getOrCreateProducto(nombre: string, first: Row) {
+      const nombreFinal = nombre.trim() || "Producto importado";
+      const exist = await tx.producto.findFirst({
+        where: {
+          id_mutual: mutualId,
+          nombre: { equals: nombreFinal, mode: "insensitive" },
+        },
+      });
+      if (exist) return exist;
+
+      return tx.producto.create({
+        data: {
+          id_mutual: mutualId,
+          nombre: nombreFinal,
+          tasa_interes: 0,
+          dia_vencimiento: first.fechaven?.getDate() ?? 1,
+          regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
+          comision_comerc: 0,
+          comision_gestion: 0,
+        },
+      });
     }
 
-    const autorizadoPorConcepto = nombreConcepto
-      ? SOCIOS_AUTORIZADOS.has(nombreConcepto)
-      : false;
+    let creditosCreados = 0;
+    let cuotasCreadas = 0;
+    let cuotasIgnoradas = 0;
+    let creditosOmitidosNoAutorizados = 0;
+    let creditosOmitidosSinAsociado = 0;
+    let creditosOmitidosOtraMutual = 0;
+    const hoy = new Date();
 
-    const autorizadoPorDb = asociado
-      ? SOCIOS_AUTORIZADOS.has(normalizeText(getAsociadoNombreCompleto(asociado)))
-      : false;
+    for (const [codigo_externo, filas] of Array.from(grupos.entries())) {
+      const ordenadas = [...filas].sort((a, b) => a.nrocuo - b.nrocuo);
+      const first = ordenadas[0];
+      const conceptoConValor =
+        ordenadas.find((row) => normalizeText(row.concepto).length > 0)?.concepto ??
+        first.concepto;
+      const nombreConcepto = normalizeText(conceptoConValor);
 
-    if (!autorizadoPorConcepto && !autorizadoPorDb) {
-      creditosOmitidosNoAutorizados++;
-      continue;
-    }
+      if (!first.fechaven) {
+        console.log(`⛔ Crédito ${codigo_externo} SALTEADO → sin fecha`);
+        continue;
+      }
 
-    if (!asociado) {
-      creditosOmitidosSinAsociado++;
-      continue;
-    }
+      let asociado = asociadosById.get(first.codigo) ?? null;
+      if (!asociado && nombreConcepto) {
+        asociado = asociadosByNombre.get(nombreConcepto) ?? null;
+      }
 
-    let credito = await prisma.credito.findFirst({
-      where: { codigo_externo },
-    });
+      const autorizadoPorConcepto = nombreConcepto
+        ? SOCIOS_AUTORIZADOS.has(nombreConcepto)
+        : false;
 
-    if (credito && credito.id_mutual !== mutualId) {
-      creditosOmitidosOtraMutual++;
-      continue;
-    }
+      const autorizadoPorDb = asociado
+        ? SOCIOS_AUTORIZADOS.has(normalizeText(getAsociadoNombreCompleto(asociado)))
+        : false;
 
-    if (!credito) {
-      const nombreProducto = first.garantia;
+      if (!autorizadoPorConcepto && !autorizadoPorDb) {
+        creditosOmitidosNoAutorizados++;
+        continue;
+      }
 
-      const producto = await getOrCreateProducto(nombreProducto, first);
+      if (!asociado) {
+        creditosOmitidosSinAsociado++;
+        continue;
+      }
 
-      const total = ordenadas.reduce((a, r) => a + r.debe, 0);
-
-      console.log("🟢 CREANDO CRÉDITO", {
-        codigo_externo,
-        asociado: getAsociadoNombreCompleto(asociado),
-        producto: nombreProducto,
-        total,
+      let credito = await tx.credito.findFirst({
+        where: { codigo_externo },
       });
 
-      try {
-        credito = await prisma.credito.create({
-          data: {
-            id_mutual: mutualId,
-            id_asociado: asociado.id_asociado,
-            id_producto: producto.id_producto,
-            codigo_externo,
-            fecha_creacion: first.fechaven,
-            monto: total,
-            saldo_capital_inicial: total,
-            saldo_capital_actual: total,
-            cuotas_pagadas: 0,
-            cuotas_pendientes: first.cancuo,
-            estado: EstadoCredito.activo,
-            numero_cuotas: first.cancuo,
-            primera_venc: first.fechaven,
-            dia_vencimiento: first.fechaven.getDate(),
-            tasa_interes: 0,
-            tipo_operacion: "credito",
-            fuente_financiamiento_externa: "fondo-propio",
-            usuario_creacion:
-              info.user.emailAddresses?.[0]?.emailAddress ?? "import",
-            regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
+      if (credito && credito.id_mutual !== mutualId) {
+        creditosOmitidosOtraMutual++;
+        continue;
+      }
+
+      if (!credito) {
+        const nombreProducto = first.garantia;
+
+        const producto = await getOrCreateProducto(nombreProducto, first);
+
+        const total = ordenadas.reduce((a, r) => a + r.debe, 0);
+
+        console.log("🟢 CREANDO CRÉDITO", {
+          codigo_externo,
+          asociado: getAsociadoNombreCompleto(asociado),
+          producto: nombreProducto,
+          total,
+        });
+
+        try {
+          credito = await tx.credito.create({
+            data: {
+              id_mutual: mutualId,
+              id_asociado: asociado.id_asociado,
+              id_producto: producto.id_producto,
+              codigo_externo,
+              fecha_creacion: first.fechaven,
+              monto: total,
+              saldo_capital_inicial: total,
+              saldo_capital_actual: total,
+              cuotas_pagadas: 0,
+              cuotas_pendientes: first.cancuo,
+              estado: EstadoCredito.activo,
+              numero_cuotas: first.cancuo,
+              primera_venc: first.fechaven,
+              dia_vencimiento: first.fechaven.getDate(),
+              tasa_interes: 0,
+              tipo_operacion: "credito",
+              fuente_financiamiento_externa: "fondo-propio",
+              usuario_creacion:
+                info.user.emailAddresses?.[0]?.emailAddress ?? "import",
+              regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
+            },
+          });
+
+          creditosCreados++;
+        } catch (err: any) {
+          console.error("❌ ERROR CREANDO CRÉDITO", err?.message, err);
+          continue;
+        }
+      }
+
+      for (const r of ordenadas) {
+        if (!r.fechaven) continue;
+
+        const existe = await tx.cuota.findFirst({
+          where: {
+            id_credito: credito.id_credito,
+            numero_cuota: r.nrocuo,
+            fecha_vencimiento: r.fechaven,
+            monto_total: r.debe,
           },
         });
 
-        creditosCreados++;
-      } catch (err: any) {
-        console.error("❌ ERROR CREANDO CRÉDITO", err?.message, err);
-        continue;
+        if (existe) {
+          cuotasIgnoradas++;
+          continue;
+        }
+
+        await tx.cuota.create({
+          data: {
+            id_credito: credito.id_credito,
+            numero_cuota: r.nrocuo,
+            fecha_vencimiento: r.fechaven,
+            monto_capital: r.debe,
+            monto_interes: 0,
+            monto_total: r.debe,
+            interes_punitorio: 0,
+            estado: r.fechaven < hoy ? EstadoCuota.pagada : EstadoCuota.pendiente,
+          },
+        });
+
+        cuotasCreadas++;
       }
     }
 
-    for (const r of ordenadas) {
-      if (!r.fechaven) continue;
-
-      const existe = await prisma.cuota.findFirst({
-        where: {
-          id_credito: credito.id_credito,
-          numero_cuota: r.nrocuo,
-          fecha_vencimiento: r.fechaven,
-          monto_total: r.debe,
-        },
-      });
-
-      if (existe) {
-        cuotasIgnoradas++;
-        continue;
-      }
-
-      await prisma.cuota.create({
-        data: {
-          id_credito: credito.id_credito,
-          numero_cuota: r.nrocuo,
-          fecha_vencimiento: r.fechaven,
-          monto_capital: r.debe,
-          monto_interes: 0,
-          monto_total: r.debe,
-          interes_punitorio: 0,
-          estado: r.fechaven < hoy ? EstadoCuota.pagada : EstadoCuota.pendiente,
-        },
-      });
-
-      cuotasCreadas++;
-    }
-  }
-
-  console.log(`
+    console.log(`
 =====================================
       🟢 IMPORTACIÓN COMPLETADA
 =====================================
@@ -663,14 +665,15 @@ Filas inválidas:         ${filasInvalidas}
 =====================================
 `);
 
-  return {
-    ok: true,
-    creditosCreados,
-    cuotasCreadas,
-    cuotasIgnoradas,
-    creditosOmitidosNoAutorizados,
-    creditosOmitidosSinAsociado,
-    creditosOmitidosOtraMutual,
-    filasInvalidas,
-  };
+    return {
+      ok: true,
+      creditosCreados,
+      cuotasCreadas,
+      cuotasIgnoradas,
+      creditosOmitidosNoAutorizados,
+      creditosOmitidosSinAsociado,
+      creditosOmitidosOtraMutual,
+      filasInvalidas,
+    };
+  });
 }
