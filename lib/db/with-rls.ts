@@ -5,7 +5,8 @@ import type { Prisma } from "@prisma/client";
 export async function withRLS<T>(
   mutualId: number,
   clerkId: string,
-  fn: (tx: Prisma.TransactionClient, ctx: { mutualId: number; clerkId: string }) => Promise<T>
+  fn: (tx: Prisma.TransactionClient, ctx: { mutualId: number; clerkId: string }) => Promise<T>,
+  options?: { timeoutMs?: number }
 ): Promise<T> {
   if (!Number.isInteger(mutualId) || mutualId <= 0) {
     throw new Error(`withRLS: mutualId inválido (${String(mutualId)})`);
@@ -23,6 +24,6 @@ export async function withRLS<T>(
 
       return await fn(tx, { mutualId, clerkId });
     },
-    { timeout: 20000 }
+    { timeout: options?.timeoutMs ?? 20000 }
   );
 }

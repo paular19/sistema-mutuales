@@ -675,5 +675,5 @@ Filas inválidas:         ${filasInvalidas}
       creditosOmitidosOtraMutual,
       filasInvalidas,
     };
-  });
+  }, { timeoutMs: 180000 });
 }
