@@ -8,25 +8,30 @@ import { toast } from "sonner";
 
 type ImportHistoricosResult =
   | {
-      ok: true;
-      creditosCreados: number;
-      cuotasCreadas: number;
-      cuotasIgnoradas: number;
-    }
+    ok: true;
+    creditosCreados: number;
+    cuotasCreadas: number;
+    cuotasIgnoradas: number;
+    creditosOmitidosNoAutorizados: number;
+    creditosOmitidosSinAsociado: number;
+    creditosOmitidosOtraMutual: number;
+    filasInvalidas: number;
+  }
   | {
-      ok: false;
-      error: string;
-    };
+    ok: false;
+    error: string;
+  };
 
 export function ImportHistoricosForm() {
   const [isImporting, setIsImporting] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setIsImporting(true);
 
     try {
-      const formData = new FormData(e.currentTarget);
+      const formData = new FormData(form);
       const result = (await importHistoricosCreditosAction(
         formData
       )) as ImportHistoricosResult;
@@ -39,10 +44,10 @@ export function ImportHistoricosForm() {
       }
 
       toast.success("Importación completada", {
-        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas} | Ignoradas: ${result.cuotasIgnoradas}`,
+        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas} | Ignoradas: ${result.cuotasIgnoradas} | No autorizados: ${result.creditosOmitidosNoAutorizados} | Sin asociado: ${result.creditosOmitidosSinAsociado} | Otra mutual: ${result.creditosOmitidosOtraMutual} | Filas inválidas: ${result.filasInvalidas}`,
       });
 
-      e.currentTarget.reset();
+      form.reset();
     } catch (err) {
       console.error(err);
       toast.error("Error al importar", {
@@ -59,6 +64,9 @@ export function ImportHistoricosForm() {
       className="space-y-4 p-4 border rounded-md max-w-sm bg-white"
     >
       <h3 className="font-semibold text-lg">Importar Créditos Históricos</h3>
+      <p className="text-sm text-muted-foreground">
+        Columnas esperadas: concepto, codigo, ayuda, fechaven, cancuo, nrocuo, garantia, debe (valor de la cuota).
+      </p>
 
       <input
         type="file"
