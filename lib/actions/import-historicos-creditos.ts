@@ -394,7 +394,10 @@ export async function importHistoricosCreditosAction(formData: FormData) {
   const info = await getServerUser();
   if (!info?.mutualId) return { ok: false, error: "Usuario no autenticado" };
 
-  const mutualId = info.mutualId;
+  const mutualId = Number(info.mutualId);
+  if (!Number.isInteger(mutualId) || mutualId <= 0) {
+    return { ok: false, error: "Mutual inválida en metadata del usuario" };
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const workbook = XLSX.read(buffer);
