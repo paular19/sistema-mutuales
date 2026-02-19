@@ -4,16 +4,29 @@ import { createCredito } from "@/lib/actions/creditos";
 import { CreditoForm } from "@/components/creditos/credito-form";
 import { ImportHistoricosModal } from "@/components/creditos/import-historicos-modal";
 
+function toValidMutualId(value: unknown): number | null {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.trim())
+        : Number.NaN;
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export default async function NewCreditoPage() {
   // 🔹 Obtener usuario + mutualId
   const info = await getServerUser();
-  if (!info || !info.mutualId) {
+  const mutualId = toValidMutualId(info?.mutualId);
+
+  if (!info || !mutualId) {
     throw new Error("No se pudo obtener el usuario o el mutualId");
   }
 
   // 🔹 Ejecutamos la consulta dentro del contexto RLS
   const { asociados, productos } = await withRLS(
-    info.mutualId,
+    mutualId,
     info.userId,
     async (prisma) => {
       const asociados = await prisma.asociado.findMany({

@@ -7,7 +7,9 @@ export async function withRLS<T>(
   clerkId: string,
   fn: (tx: Prisma.TransactionClient, ctx: { mutualId: number; clerkId: string }) => Promise<T>
 ): Promise<T> {
-  if (!mutualId) throw new Error("withRLS: mutualId faltante");
+  if (!Number.isInteger(mutualId) || mutualId <= 0) {
+    throw new Error(`withRLS: mutualId inválido (${String(mutualId)})`);
+  }
   if (!clerkId) throw new Error("withRLS: clerkId faltante");
 
   return await prisma.$transaction(
