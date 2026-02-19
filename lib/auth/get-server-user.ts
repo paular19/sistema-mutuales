@@ -1,6 +1,7 @@
 // lib/auth/get-server-user.ts
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db/prisma";
 
 function normalizeMutualId(value: unknown): number | null {
   if (typeof value === "number") {
@@ -31,7 +32,17 @@ export async function getServerUser() {
 
   const clerk = await clerkClient();
   const user = await clerk.users.getUser(userId);
-  const mutualId = normalizeMutualId(user.publicMetadata?.mutualId);
+
+  let mutualId = normalizeMutualId(user.publicMetadata?.mutualId);
+
+  if (!mutualId) {
+    const usuario = await prisma.usuario.findUnique({
+      where: { clerkId: userId },
+      select: { id_mutual: true },
+    });
+
+    mutualId = normalizeMutualId(usuario?.id_mutual ?? null);
+  }
 
   return {
     userId,
