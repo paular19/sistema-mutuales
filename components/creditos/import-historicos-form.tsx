@@ -15,6 +15,7 @@ type ImportHistoricosResult =
     creditosOmitidosNoAutorizados: number;
     creditosOmitidosSinAsociado: number;
     creditosOmitidosOtraMutual: number;
+    creditosCreadosSinCodigoExterno: number;
     filasInvalidas: number;
   }
   | {
@@ -44,7 +45,7 @@ export function ImportHistoricosForm() {
       }
 
       toast.success("Importación completada", {
-        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas} | Ignoradas: ${result.cuotasIgnoradas} | No autorizados: ${result.creditosOmitidosNoAutorizados} | Sin asociado: ${result.creditosOmitidosSinAsociado} | Otra mutual: ${result.creditosOmitidosOtraMutual} | Filas inválidas: ${result.filasInvalidas}`,
+        description: `Créditos: ${result.creditosCreados} | Cuotas: ${result.cuotasCreadas} | Ignoradas: ${result.cuotasIgnoradas} | No autorizados: ${result.creditosOmitidosNoAutorizados} | Sin asociado: ${result.creditosOmitidosSinAsociado} | Otra mutual: ${result.creditosOmitidosOtraMutual} | Sin código externo: ${result.creditosCreadosSinCodigoExterno} | Filas inválidas: ${result.filasInvalidas}`,
       });
 
       form.reset();

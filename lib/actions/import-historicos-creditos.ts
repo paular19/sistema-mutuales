@@ -561,6 +561,7 @@ export async function importHistoricosCreditosAction(formData: FormData) {
     let creditosOmitidosNoAutorizados = 0;
     let creditosOmitidosSinAsociado = 0;
     let creditosOmitidosOtraMutual = 0;
+    let creditosCreadosSinCodigoExterno = 0;
     const hoy = new Date();
 
     for (const [codigo_externo, filas] of Array.from(grupos.entries())) {
@@ -603,14 +604,17 @@ export async function importHistoricosCreditosAction(formData: FormData) {
         continue;
       }
 
-      let credito = await tx.credito.findFirst({
-        where: { codigo_externo },
-      });
+      const codigoExternoTag = `[codigo_externo_origen:${codigo_externo}]`;
 
-      if (credito && credito.id_mutual !== mutualId) {
-        creditosOmitidosOtraMutual++;
-        continue;
-      }
+      let credito = await tx.credito.findFirst({
+        where: {
+          id_mutual: mutualId,
+          OR: [
+            { codigo_externo },
+            { observaciones: { contains: codigoExternoTag } },
+          ],
+        },
+      });
 
       if (!credito) {
         const nombreProducto = first.garantia;
@@ -627,30 +631,70 @@ export async function importHistoricosCreditosAction(formData: FormData) {
         });
 
         try {
-          credito = await tx.credito.create({
-            data: {
-              id_mutual: mutualId,
-              id_asociado: asociado.id_asociado,
-              id_producto: producto.id_producto,
-              codigo_externo,
-              fecha_creacion: first.fechaven,
-              monto: total,
-              saldo_capital_inicial: total,
-              saldo_capital_actual: total,
-              cuotas_pagadas: 0,
-              cuotas_pendientes: first.cancuo,
-              estado: EstadoCredito.activo,
-              numero_cuotas: first.cancuo,
-              primera_venc: first.fechaven,
-              dia_vencimiento: first.fechaven.getDate(),
-              tasa_interes: 0,
-              tipo_operacion: "credito",
-              fuente_financiamiento_externa: "fondo-propio",
-              usuario_creacion:
-                info.user.emailAddresses?.[0]?.emailAddress ?? "import",
-              regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
-            },
-          });
+          try {
+            credito = await tx.credito.create({
+              data: {
+                id_mutual: mutualId,
+                id_asociado: asociado.id_asociado,
+                id_producto: producto.id_producto,
+                codigo_externo,
+                fecha_creacion: first.fechaven,
+                monto: total,
+                saldo_capital_inicial: total,
+                saldo_capital_actual: total,
+                cuotas_pagadas: 0,
+                cuotas_pendientes: first.cancuo,
+                estado: EstadoCredito.activo,
+                numero_cuotas: first.cancuo,
+                primera_venc: first.fechaven,
+                dia_vencimiento: first.fechaven.getDate(),
+                tasa_interes: 0,
+                tipo_operacion: "credito",
+                fuente_financiamiento_externa: "fondo-propio",
+                usuario_creacion:
+                  info.user.emailAddresses?.[0]?.emailAddress ?? "import",
+                regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
+              },
+            });
+          } catch (errorCodigoExterno: any) {
+            const isCodigoExternoUniqueError =
+              errorCodigoExterno?.code === "P2002" &&
+              String(errorCodigoExterno?.meta?.target ?? "").includes("codigo_externo");
+
+            if (!isCodigoExternoUniqueError) {
+              throw errorCodigoExterno;
+            }
+
+            creditosOmitidosOtraMutual++;
+
+            credito = await tx.credito.create({
+              data: {
+                id_mutual: mutualId,
+                id_asociado: asociado.id_asociado,
+                id_producto: producto.id_producto,
+                codigo_externo: null,
+                fecha_creacion: first.fechaven,
+                monto: total,
+                saldo_capital_inicial: total,
+                saldo_capital_actual: total,
+                cuotas_pagadas: 0,
+                cuotas_pendientes: first.cancuo,
+                estado: EstadoCredito.activo,
+                numero_cuotas: first.cancuo,
+                primera_venc: first.fechaven,
+                dia_vencimiento: first.fechaven.getDate(),
+                tasa_interes: 0,
+                tipo_operacion: "credito",
+                fuente_financiamiento_externa: "fondo-propio",
+                usuario_creacion:
+                  info.user.emailAddresses?.[0]?.emailAddress ?? "import",
+                regla_vencimiento: VencimientoRegla.AJUSTAR_ULTIMO_DIA,
+                observaciones: codigoExternoTag,
+              },
+            });
+
+            creditosCreadosSinCodigoExterno++;
+          }
 
           creditosCreados++;
         } catch (err: any) {
@@ -703,6 +747,7 @@ Cuotas ignoradas:  ${cuotasIgnoradas}
 Créditos no autorizados: ${creditosOmitidosNoAutorizados}
 Créditos sin asociado:   ${creditosOmitidosSinAsociado}
 Créditos otra mutual:    ${creditosOmitidosOtraMutual}
+Créditos creados sin código externo: ${creditosCreadosSinCodigoExterno}
 Filas inválidas:         ${filasInvalidas}
 =====================================
 `);
@@ -715,6 +760,7 @@ Filas inválidas:         ${filasInvalidas}
       creditosOmitidosNoAutorizados,
       creditosOmitidosSinAsociado,
       creditosOmitidosOtraMutual,
+      creditosCreadosSinCodigoExterno,
       filasInvalidas,
     };
   }, { timeoutMs: 180000 });
