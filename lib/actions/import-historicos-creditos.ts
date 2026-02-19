@@ -494,6 +494,44 @@ export async function importHistoricosCreditosAction(formData: FormData) {
       }
     }
 
+    async function createAsociadoDesdeConcepto(concepto: string): Promise<AsociadoLite | null> {
+      const normalizado = normalizeText(concepto);
+      if (!normalizado) return null;
+
+      const partes = normalizado.split(" ").filter(Boolean);
+      if (partes.length === 0) return null;
+
+      const apellido = partes[0] ?? "SIN_APELLIDO";
+      const nombre = partes.slice(1).join(" ") || "SIN_NOMBRE";
+
+      const creado = await tx.asociado.create({
+        data: {
+          id_mutual: mutualId,
+          apellido,
+          nombre,
+          telefono: "N/A",
+          calle: "N/A",
+          codigo_postal: "0",
+          localidad: "N/A",
+          provincia: "N/A",
+          dec_jurada: false,
+          recibe_notificaciones: false,
+          saldo_disponible: 0,
+        },
+        select: {
+          id_asociado: true,
+          nombre: true,
+          apellido: true,
+          razon_social: true,
+        },
+      });
+
+      asociadosById.set(creado.id_asociado, creado);
+      asociadosByNombre.set(normalizado, creado);
+
+      return creado;
+    }
+
     async function getOrCreateProducto(nombre: string, first: Row) {
       const nombreFinal = nombre.trim() || "Producto importado";
       const exist = await tx.producto.findFirst({
@@ -554,6 +592,10 @@ export async function importHistoricosCreditosAction(formData: FormData) {
       if (!autorizadoPorConcepto && !autorizadoPorDb) {
         creditosOmitidosNoAutorizados++;
         continue;
+      }
+
+      if (!asociado && autorizadoPorConcepto) {
+        asociado = await createAsociadoDesdeConcepto(conceptoConValor);
       }
 
       if (!asociado) {
