@@ -13,81 +13,69 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
+    const hoy = new Date();
+
     const liq = await tx.liquidacion.findFirst({
       where: {
         id_mutual: ctx.mutualId,
         estado: { in: [EstadoLiquidacion.generada, EstadoLiquidacion.revisada] },
       },
       orderBy: { fecha_creacion: "desc" }, // ✅ existe en tu schema
-      include: {
-        detalle: {
-          ...(filters.productoId
-            ? {
-              where: {
-                cuota: {
-                  credito: { id_producto: filters.productoId },
-                },
-              },
-            }
-            : {}),
-          orderBy: { id_detalle: "asc" },
-          include: {
-            cuota: {
-              select: {
-                id_cuota: true,
-                numero_cuota: true,
-                fecha_vencimiento: true,
-                monto_total: true,
-                estado: true,
-                credito: {
-                  select: {
-                    id_credito: true,
-                    id_asociado: true,
-                    codigo_externo: true,
-                    asociado: {
-                      select: {
-                        nombre: true,
-                        apellido: true,
-                        razon_social: true,
-                      },
-                    },
-                    producto: { select: { nombre: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
     });
 
     if (!liq) return null;
 
-    const filas = liq.detalle.map((d) => {
-      const a = d.cuota.credito?.asociado;
+    const cuotas = await tx.cuota.findMany({
+      where: {
+        estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        ...(filters.productoId ? { credito: { id_producto: filters.productoId } } : {}),
+        OR: [
+          { fecha_vencimiento: { lte: hoy } },
+          {
+            liquidacionDetalle: {
+              some: {
+                liquidacion: {
+                  estado: { not: EstadoLiquidacion.cerrada },
+                },
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        credito: {
+          include: {
+            asociado: true,
+            producto: true,
+          },
+        },
+      },
+      orderBy: { fecha_vencimiento: "asc" },
+    });
+
+    const cuotasPendientes = cuotas.map((cuota) => {
+      const a = cuota.credito.asociado;
       const asociado =
-        a?.razon_social?.trim() ||
-        [a?.apellido, a?.nombre].filter(Boolean).join(" ") ||
+        a.razon_social?.trim() ||
+        [a.apellido, a.nombre].filter(Boolean).join(" ") ||
         null;
 
       return {
-        id_cuota: d.cuota.id_cuota,
+        id_cuota: cuota.id_cuota,
         asociado,
-        producto: d.cuota.credito?.producto?.nombre ?? "-",
-        numero_cuenta: String(d.cuota.credito?.codigo_externo ?? d.cuota.credito?.id_asociado ?? ""),
-        numero_ayuda: d.cuota.credito?.id_credito ?? 0,
-        numero_credito: d.cuota.credito?.id_credito ?? 0,
-        numero_cuota: d.cuota.numero_cuota,
-        fecha_vencimiento: d.cuota.fecha_vencimiento,
-        monto_total: d.cuota.monto_total,
-        estado: d.cuota.estado as EstadoCuota,
+        producto: cuota.credito.producto?.nombre ?? "-",
+        numero_cuenta: String(cuota.credito.codigo_externo ?? cuota.credito.id_asociado),
+        numero_ayuda: cuota.credito.id_credito,
+        numero_credito: cuota.credito.id_credito,
+        numero_cuota: cuota.numero_cuota,
+        fecha_vencimiento: cuota.fecha_vencimiento,
+        monto_total: cuota.monto_total,
+        estado: cuota.estado as EstadoCuota,
       };
     });
 
-    const cuotasPagadas = filas.filter((f) => f.estado === EstadoCuota.pagada);
-    const cuotasPendientes = filas.filter((f) => f.estado !== EstadoCuota.pagada);
-
-    const totalPagadas = cuotasPagadas.reduce((a, f) => a + f.monto_total, 0);
+    const cuotasPagadas: typeof cuotasPendientes = [];
+    const totalPagadas = 0;
     const totalPendientes = cuotasPendientes.reduce((a, f) => a + f.monto_total, 0);
 
     return {

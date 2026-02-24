@@ -22,27 +22,11 @@ export async function cobrarCuotasDesdeCancelacion(
   if (!ids.length) return { error: "No seleccionaste cuotas." };
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
-    // ✅ Validar que las cuotas están en la liquidación
-    const detalles = await tx.liquidacionDetalle.findMany({
-      where: {
-        id_liquidacion: liquidacionId,
-        id_cuota: { in: ids },
-        liquidacion: { id_mutual: ctx.mutualId },
-      },
-      select: { id_cuota: true },
-    });
-
-    const permitidas = new Set(detalles.map((d) => d.id_cuota));
-    const idsValidos = ids.filter((id) => permitidas.has(id));
-
-    if (!idsValidos.length) {
-      return { error: "Las cuotas seleccionadas no pertenecen a la liquidación." };
-    }
-
     const cuotas = await tx.cuota.findMany({
       where: {
-        id_cuota: { in: idsValidos },
+        id_cuota: { in: ids },
         estado: { not: EstadoCuota.pagada },
+        credito: { id_mutual: ctx.mutualId },
       },
       select: { id_cuota: true, monto_total: true },
     });
