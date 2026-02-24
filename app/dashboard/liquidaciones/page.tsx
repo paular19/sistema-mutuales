@@ -4,12 +4,15 @@ export const dynamic = "force-dynamic";
 import { getPreLiquidacion } from "@/lib/queries/liquidaciones";
 import { generarLiquidacion } from "@/lib/actions/liquidaciones";
 import { LiquidacionesPageClient } from "@/components/liquidacion/liquidaciones-page-client";
+import { ProductoFilterExport } from "@/components/shared/producto-filter-export";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { getProductosOptions } from "@/lib/queries/productos";
 
 interface SearchParams {
   page?: string;
+  productoId?: string;
 }
 
 export default async function LiquidacionesPage(props: {
@@ -19,10 +22,13 @@ export default async function LiquidacionesPage(props: {
   const searchParams = await props.searchParams;
 
   const page = Number(searchParams.page ?? 1);
+  const productoIdRaw = Number(searchParams.productoId);
+  const productoId = Number.isFinite(productoIdRaw) && productoIdRaw > 0 ? productoIdRaw : undefined;
   const limit = 10;
 
   // 🔹 Pre-liquidación on-demand (vencidas + arrastradas)
-  const { cuotas, total } = await getPreLiquidacion();
+  const { cuotas, total } = await getPreLiquidacion({ productoId });
+  const productos = await getProductosOptions();
 
   const totalPages = Math.max(1, Math.ceil(cuotas.length / limit));
   const startIndex = (page - 1) * limit;
@@ -52,6 +58,13 @@ export default async function LiquidacionesPage(props: {
           </Button>
         </form>
       </div>
+
+      <ProductoFilterExport
+        productos={productos}
+        pageBasePath="/dashboard/liquidaciones"
+        exportBasePath="/endpoints/liquidaciones/export"
+        selectedProductoId={productoId}
+      />
 
       {/* 📋 Tabla */}
       <Card>

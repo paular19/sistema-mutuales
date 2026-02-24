@@ -11,9 +11,22 @@ import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils/format";
+import { getProductosOptions } from "@/lib/queries/productos";
+import { ProductoFilterExport } from "@/components/shared/producto-filter-export";
 
-export default async function CancelacionesPage() {
-  const data = await getCancelacionDesdeLiquidacion();
+interface SearchParams {
+  productoId?: string;
+}
+
+export default async function CancelacionesPage(props: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const searchParams = await props.searchParams;
+  const productoIdRaw = Number(searchParams.productoId);
+  const productoId = Number.isFinite(productoIdRaw) && productoIdRaw > 0 ? productoIdRaw : undefined;
+
+  const data = await getCancelacionDesdeLiquidacion({ productoId });
+  const productos = await getProductosOptions();
 
   if (!data) {
     return (
@@ -74,6 +87,13 @@ export default async function CancelacionesPage() {
           </form>
         </div>
       </div>
+
+      <ProductoFilterExport
+        productos={productos}
+        pageBasePath="/dashboard/cancelaciones"
+        exportBasePath="/endpoints/cancelaciones/export"
+        selectedProductoId={productoId}
+      />
 
       {/* 🔴 IMPAGAS */}
       <section className="space-y-4">

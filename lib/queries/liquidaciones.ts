@@ -8,11 +8,17 @@ export interface PreLiquidacionCuota {
   id_cuota: number;
   asociado: string;
   producto: string;
+  numero_cuenta: string;
+  numero_ayuda: number;
   numero_credito: number;
   numero_cuota: number;
   fecha_vencimiento: Date;
   monto_total: number;
   estado: EstadoCuota;
+}
+
+interface PreLiquidacionFilters {
+  productoId?: number;
 }
 
 export async function getHistorialLiquidaciones() {
@@ -36,7 +42,7 @@ export async function getHistorialLiquidaciones() {
   });
 }
 
-export async function getPreLiquidacion() {
+export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
@@ -46,6 +52,7 @@ export async function getPreLiquidacion() {
     const cuotas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        ...(filters.productoId ? { credito: { id_producto: filters.productoId } } : {}),
         OR: [
           { fecha_vencimiento: { lte: hoy } },
           {
@@ -73,13 +80,15 @@ export async function getPreLiquidacion() {
     // 🔹 MAPEO A DTO DE UI
     const filas: PreLiquidacionCuota[] = cuotas.map((c) => ({
       id_cuota: c.id_cuota,
-  asociado:
-  c.credito.asociado.tipo_persona === "juridica"
-    ? c.credito.asociado.razon_social ?? ""
-    : [c.credito.asociado.apellido, c.credito.asociado.nombre]
-        .filter(Boolean)
-        .join(", "),
+      asociado:
+        c.credito.asociado.tipo_persona === "juridica"
+          ? c.credito.asociado.razon_social ?? ""
+          : [c.credito.asociado.apellido, c.credito.asociado.nombre]
+            .filter(Boolean)
+            .join(", "),
       producto: c.credito.producto.nombre ?? "",
+      numero_cuenta: String(c.credito.codigo_externo ?? c.credito.id_asociado),
+      numero_ayuda: c.credito.id_credito,
       numero_credito: c.credito.id_credito,
       numero_cuota: c.numero_cuota,
       fecha_vencimiento: c.fecha_vencimiento,

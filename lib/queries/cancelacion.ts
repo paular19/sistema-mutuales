@@ -8,7 +8,7 @@ import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
  * Cancelación = reflejo de la última liquidación NO cerrada (generada o revisada)
  * Devuelve filas "planas" para la UI.
  */
-export async function getCancelacionDesdeLiquidacion() {
+export async function getCancelacionDesdeLiquidacion(filters: { productoId?: number } = {}) {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
@@ -21,6 +21,15 @@ export async function getCancelacionDesdeLiquidacion() {
       orderBy: { fecha_creacion: "desc" }, // ✅ existe en tu schema
       include: {
         detalle: {
+          ...(filters.productoId
+            ? {
+              where: {
+                cuota: {
+                  credito: { id_producto: filters.productoId },
+                },
+              },
+            }
+            : {}),
           orderBy: { id_detalle: "asc" },
           include: {
             cuota: {
@@ -33,6 +42,8 @@ export async function getCancelacionDesdeLiquidacion() {
                 credito: {
                   select: {
                     id_credito: true,
+                    id_asociado: true,
+                    codigo_externo: true,
                     asociado: {
                       select: {
                         nombre: true,
@@ -63,6 +74,8 @@ export async function getCancelacionDesdeLiquidacion() {
         id_cuota: d.cuota.id_cuota,
         asociado,
         producto: d.cuota.credito?.producto?.nombre ?? "-",
+        numero_cuenta: String(d.cuota.credito?.codigo_externo ?? d.cuota.credito?.id_asociado ?? ""),
+        numero_ayuda: d.cuota.credito?.id_credito ?? 0,
         numero_credito: d.cuota.credito?.id_credito ?? 0,
         numero_cuota: d.cuota.numero_cuota,
         fecha_vencimiento: d.cuota.fecha_vencimiento,
