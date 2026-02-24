@@ -83,6 +83,9 @@ model Asociado {
   telefono              String        @db.VarChar(20)
   email                 String?       @db.VarChar(50)
   profesion             String?       @db.VarChar(50)
+  tiene_conyuge         Boolean       @default(false)
+  nombre_conyuge        String?       @db.VarChar(100)
+  dni_conyuge           String?       @db.VarChar(20)
   dec_jurada            Boolean
   calle                 String        @db.VarChar(100)
   codigo_postal         String        @db.VarChar(10)

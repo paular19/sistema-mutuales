@@ -92,6 +92,9 @@ export async function importAsociadosAction(formData: FormData) {
 
           sueldo_mes: a.sueldo_mes ? Number(a.sueldo_mes) : null,
           sueldo_ano: a.sueldo_ano ? Number(a.sueldo_ano) : null,
+          tiene_conyuge: toBool(a.tiene_conyuge ?? a.conyuge),
+          nombre_conyuge: a.nombre_conyuge ?? null,
+          dni_conyuge: a.dni_conyuge ? String(a.dni_conyuge) : null,
 
           fecha_nac: a.fecha_nac ? new Date(a.fecha_nac) : null,
           genero: a.genero ?? null,
@@ -200,6 +203,9 @@ export async function createAsociado(prevState: any, formData: FormData) {
       sueldo_ano: formData.get("sueldo_ano")
         ? Number(formData.get("sueldo_ano"))
         : null,
+      tiene_conyuge: formData.get("tiene_conyuge") === "on",
+      nombre_conyuge: formData.get("nombre_conyuge") || null,
+      dni_conyuge: formData.get("dni_conyuge") || null,
       fecha_nac: formData.get("fecha_nac")
         ? new Date(formData.get("fecha_nac") as string)
         : null,
@@ -253,6 +259,9 @@ export async function createAsociado(prevState: any, formData: FormData) {
           cuit: data.cuit,
           sueldo_mes: data.sueldo_mes,
           sueldo_ano: data.sueldo_ano,
+          tiene_conyuge: data.tiene_conyuge,
+          nombre_conyuge: data.nombre_conyuge,
+          dni_conyuge: data.dni_conyuge,
           fecha_nac: data.fecha_nac,
           genero: data.genero,
           telefono: data.telefono,
@@ -310,6 +319,9 @@ export async function updateAsociado(
       sueldo_ano: formData.get("sueldo_ano")
         ? Number(formData.get("sueldo_ano"))
         : null,
+      tiene_conyuge: formData.get("tiene_conyuge") === "on",
+      nombre_conyuge: formData.get("nombre_conyuge") || null,
+      dni_conyuge: formData.get("dni_conyuge") || null,
       fecha_nac: formData.get("fecha_nac")
         ? new Date(formData.get("fecha_nac") as string)
         : null,

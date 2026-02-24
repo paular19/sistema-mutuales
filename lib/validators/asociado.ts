@@ -18,6 +18,9 @@ export const AsociadoSchema = z.object({
   sueldo_mes: z.coerce.number().positive("El sueldo mensual debe ser positivo").nullable().optional(),
   sueldo_ano: z.coerce.number().positive("El sueldo anual debe ser positivo").nullable().optional(),
   profesion: z.string().max(50, "La profesión no puede exceder 50 caracteres").nullable().optional(),
+  tiene_conyuge: z.boolean().default(false),
+  nombre_conyuge: z.string().max(100, "El nombre del cónyuge no puede exceder 100 caracteres").nullable().optional(),
+  dni_conyuge: z.string().regex(/^\d*$/, "El DNI del cónyuge debe contener solo números").max(20, "El DNI del cónyuge no puede exceder 20 caracteres").nullable().optional(),
 
   genero: z.string().max(20).nullable().optional(),
   fecha_nac: z.coerce.date().nullable().optional(),
@@ -35,46 +38,63 @@ export const AsociadoSchema = z.object({
   piso: z.string().max(10).nullable().optional(),
   departamento: z.string().max(10).nullable().optional(),
   codigo_postal: z.string().max(10),
-id_tipo: z.number().nullable(),
+  id_tipo: z.number().nullable(),
 
   es_extranjero: z.boolean().default(false),
   recibe_notificaciones: z.boolean().default(true),
   dec_jurada: z.boolean(),
 })
-.superRefine((data, ctx) => {
-  if (data.tipo_persona === "fisica") {
-    if (!data.nombre) {
-      ctx.addIssue({
-        path: ["nombre"],
-        code: "custom",
-        message: "El nombre es requerido para persona física",
-      });
+  .superRefine((data, ctx) => {
+    if (data.tipo_persona === "fisica") {
+      if (!data.nombre) {
+        ctx.addIssue({
+          path: ["nombre"],
+          code: "custom",
+          message: "El nombre es requerido para persona física",
+        });
+      }
+      if (!data.apellido) {
+        ctx.addIssue({
+          path: ["apellido"],
+          code: "custom",
+          message: "El apellido es requerido para persona física",
+        });
+      }
+      if (!data.fecha_nac) {
+        ctx.addIssue({
+          path: ["fecha_nac"],
+          code: "custom",
+          message: "La fecha de nacimiento es requerida para persona física",
+        });
+      }
     }
-    if (!data.apellido) {
-      ctx.addIssue({
-        path: ["apellido"],
-        code: "custom",
-        message: "El apellido es requerido para persona física",
-      });
-    }
-    if (!data.fecha_nac) {
-      ctx.addIssue({
-        path: ["fecha_nac"],
-        code: "custom",
-        message: "La fecha de nacimiento es requerida para persona física",
-      });
-    }
-  }
 
-  if (data.tipo_persona === "juridica") {
-    if (!data.razon_social) {
-      ctx.addIssue({
-        path: ["razon_social"],
-        code: "custom",
-        message: "La razón social es requerida para persona jurídica",
-      });
+    if (data.tipo_persona === "juridica") {
+      if (!data.razon_social) {
+        ctx.addIssue({
+          path: ["razon_social"],
+          code: "custom",
+          message: "La razón social es requerida para persona jurídica",
+        });
+      }
     }
-  }
-});
+
+    if (data.tiene_conyuge) {
+      if (!data.nombre_conyuge?.trim()) {
+        ctx.addIssue({
+          path: ["nombre_conyuge"],
+          code: "custom",
+          message: "El nombre del cónyuge es requerido",
+        });
+      }
+      if (!data.dni_conyuge?.trim()) {
+        ctx.addIssue({
+          path: ["dni_conyuge"],
+          code: "custom",
+          message: "El DNI del cónyuge es requerido",
+        });
+      }
+    }
+  });
 
 export type AsociadoFormData = z.infer<typeof AsociadoSchema>;

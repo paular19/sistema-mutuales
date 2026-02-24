@@ -38,6 +38,9 @@ export function AsociadoForm({
   );
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tieneConyuge, setTieneConyuge] = useState(
+    Boolean(initialData?.tiene_conyuge)
+  );
   const router = useRouter();
 
   const [tipoPersona, setTipoPersona] = useState(
@@ -337,6 +340,41 @@ export function AsociadoForm({
           <Input name="profesion" defaultValue={initialData?.profesion || ""} />
           {FE("profesion")}
         </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            name="tiene_conyuge"
+            checked={tieneConyuge}
+            onChange={(e) => setTieneConyuge(e.target.checked)}
+          />
+          <label>Tiene cónyuge</label>
+        </div>
+
+        {tieneConyuge && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-medium">Nombre del cónyuge</label>
+              <Input
+                name="nombre_conyuge"
+                defaultValue={initialData?.nombre_conyuge || ""}
+              />
+              {FE("nombre_conyuge")}
+            </div>
+
+            <div>
+              <label className="block font-medium">DNI del cónyuge</label>
+              <Input
+                name="dni_conyuge"
+                defaultValue={initialData?.dni_conyuge || ""}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                }}
+              />
+              {FE("dni_conyuge")}
+            </div>
+          </div>
+        )}
 
         {/* Dirección */}
         <div className="grid grid-cols-2 gap-4">
