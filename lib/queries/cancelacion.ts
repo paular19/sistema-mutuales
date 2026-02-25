@@ -3,6 +3,7 @@
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
 import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { unstable_noStore as noStore } from "next/cache";
 
 /**
  * Cancelación = reflejo de la última liquidación NO cerrada (generada o revisada)
@@ -11,6 +12,8 @@ import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
 export async function getCancelacionDesdeLiquidacion(filters: { productoId?: number } = {}) {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
+
+  noStore();
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
     const hoy = new Date();
@@ -96,6 +99,8 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
 export async function getHistorialCancelaciones() {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
+
+  noStore();
 
   return withRLS(info.mutualId, info.userId, async (prisma) => {
     return prisma.cancelacion.findMany({

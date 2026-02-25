@@ -4,6 +4,8 @@ import { CreditosTable } from "@/components/creditos/creditos-table";
 import { getCreditos } from "@/lib/queries/creditos";
 import { anularCredito } from "@/lib/actions/creditos";
 
+export const dynamic = "force-dynamic";
+
 interface CreditosPageSearchParams {
   nombre?: string;
   estado?: string;

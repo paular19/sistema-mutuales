@@ -3,6 +3,7 @@
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
 import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { unstable_noStore as noStore } from "next/cache";
 
 export interface PreLiquidacionCuota {
   id_cuota: number;
@@ -22,6 +23,8 @@ interface PreLiquidacionFilters {
 }
 
 export async function getHistorialLiquidaciones() {
+  noStore();
+
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
@@ -43,6 +46,8 @@ export async function getHistorialLiquidaciones() {
 }
 
 export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
+  noStore();
+
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 

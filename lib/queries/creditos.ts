@@ -2,12 +2,15 @@
 
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
+import { unstable_noStore as noStore } from "next/cache";
 
 /**
  * 🔹 Obtener créditos con filtros + paginación usando RLS real
  *    (VERSIÓN SERIALIZADA PARA CLIENT COMPONENTS)
  */
 export async function getCreditos(params: any = {}) {
+  noStore();
+
   const info = await getServerUser();
   if (!info) throw new Error("Usuario no autenticado");
 
@@ -129,6 +132,8 @@ export async function getCreditos(params: any = {}) {
  * 🔹 Obtener crédito por ID — con RLS (serializado)
  */
 export async function getCreditoById(id_credito: number) {
+  noStore();
+
   const info = await getServerUser();
   if (!info?.mutualId || !info.userId)
     throw new Error("Usuario o mutual inválido");
