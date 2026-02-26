@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -32,6 +33,37 @@ export function CancelacionesTable({
   filas: CuotaRow[];
   tipo?: "abonadas" | "impagas";
 }) {
+  const checkboxAllRef = useRef<HTMLInputElement>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const filaIds = useMemo(() => filas.map((f) => f.id_cuota), [filas]);
+  const totalFilas = filaIds.length;
+  const allSelected = tipo === "impagas" && totalFilas > 0 && selectedIds.length === totalFilas;
+  const someSelected = tipo === "impagas" && selectedIds.length > 0 && selectedIds.length < totalFilas;
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [filas, tipo]);
+
+  useEffect(() => {
+    if (!checkboxAllRef.current) return;
+    checkboxAllRef.current.indeterminate = Boolean(someSelected);
+  }, [someSelected]);
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds(filaIds);
+  };
+
   if (!filas || filas.length === 0) {
     return (
       <div className="border rounded-lg p-6 text-center text-muted-foreground">
@@ -49,7 +81,19 @@ export function CancelacionesTable({
       <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
-            {tipo === "impagas" && <TableHead className="w-[40px]"></TableHead>}
+            {tipo === "impagas" && (
+              <TableHead className="w-[40px] text-center">
+                <input
+                  ref={checkboxAllRef}
+                  type="checkbox"
+                  checked={Boolean(allSelected)}
+                  onChange={toggleAll}
+                  className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                  aria-label="Seleccionar todas las cuotas"
+                  title="Seleccionar todas"
+                />
+              </TableHead>
+            )}
             <TableHead>Asociado</TableHead>
             <TableHead>Producto</TableHead>
             <TableHead>Crédito</TableHead>
@@ -70,7 +114,10 @@ export function CancelacionesTable({
                     type="checkbox"
                     name="cuotaId"
                     value={f.id_cuota}
-                    className="h-4 w-4"
+                    checked={selectedIds.includes(f.id_cuota)}
+                    onChange={() => toggleOne(f.id_cuota)}
+                    className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                    aria-label={`Seleccionar cuota ${f.numero_cuota}`}
                   />
                 </TableCell>
               )}
