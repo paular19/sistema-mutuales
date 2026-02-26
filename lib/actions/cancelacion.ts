@@ -18,55 +18,65 @@ export async function cobrarCuotasDesdeCancelacion(
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
-  const ids = formData.getAll("cuotaId").map((v) => Number(v));
+  const ids = Array.from(
+    new Set(
+      formData
+        .getAll("cuotaId")
+        .map((v) => Number(v))
+        .filter((v) => Number.isFinite(v) && v > 0)
+    )
+  );
   if (!ids.length) return { error: "No seleccionaste cuotas." };
 
-  return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
-    const cuotas = await tx.cuota.findMany({
-      where: {
-        id_cuota: { in: ids },
-        estado: { not: EstadoCuota.pagada },
-        credito: { id_mutual: ctx.mutualId },
-      },
-      select: { id_cuota: true, monto_total: true },
-    });
+  return withRLS(
+    info.mutualId,
+    info.userId,
+    async (tx, ctx) => {
+      const cuotas = await tx.cuota.findMany({
+        where: {
+          id_cuota: { in: ids },
+          estado: { not: EstadoCuota.pagada },
+          credito: { id_mutual: ctx.mutualId },
+        },
+        select: { id_cuota: true, monto_total: true },
+      });
 
-    if (!cuotas.length) return { error: "Todas las cuotas seleccionadas ya estaban pagadas." };
+      if (!cuotas.length) return { error: "Todas las cuotas seleccionadas ya estaban pagadas." };
 
-    const hoy = new Date();
-    const total = cuotas.reduce((a, c) => a + c.monto_total, 0);
+      const hoy = new Date();
+      const total = cuotas.reduce((a, c) => a + c.monto_total, 0);
 
-    const pago = await tx.pago.create({
-      data: {
-        id_mutual: ctx.mutualId,
-        fecha_pago: hoy,
-        monto_pago: total,
-        referencia: `CANCELACION-${liquidacionId}-${Date.now()}`,
-        observaciones: "Cobranza desde cancelación",
-      },
-    });
-
-    for (const cuota of cuotas) {
-      await tx.pagoCuota.create({
+      const pago = await tx.pago.create({
         data: {
-          id_pago: pago.id_pago,
-          id_cuota: cuota.id_cuota,
-          monto_pagado: cuota.monto_total,
-          fecha_pago: hoy, // ✅ NOT NULL
+          id_mutual: ctx.mutualId,
+          fecha_pago: hoy,
+          monto_pago: total,
+          referencia: `CANCELACION-${liquidacionId}-${Date.now()}`,
+          observaciones: "Cobranza desde cancelación",
         },
       });
 
-      await tx.cuota.update({
-        where: { id_cuota: cuota.id_cuota },
+      await tx.pagoCuota.createMany({
+        data: cuotas.map((cuota) => ({
+          id_pago: pago.id_pago,
+          id_cuota: cuota.id_cuota,
+          monto_pagado: cuota.monto_total,
+          fecha_pago: hoy,
+        })),
+      });
+
+      await tx.cuota.updateMany({
+        where: { id_cuota: { in: cuotas.map((c) => c.id_cuota) } },
         data: { estado: EstadoCuota.pagada },
       });
-    }
 
-    revalidatePath("/dashboard/cancelaciones");
-    revalidatePath("/dashboard/liquidaciones");
+      revalidatePath("/dashboard/cancelaciones");
+      revalidatePath("/dashboard/liquidaciones");
 
-    return { success: true, total, count: cuotas.length };
-  });
+      return { success: true, total, count: cuotas.length };
+    },
+    { timeoutMs: 60000 }
+  );
 }
 
 /**
