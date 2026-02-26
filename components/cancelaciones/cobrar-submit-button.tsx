@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 
 export function CobrarSubmitButton() {
-    const { pending } = useFormStatus();
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
-        if (!pending) {
+        if (!isSubmitting) {
             setElapsed(0);
             return;
         }
@@ -19,15 +18,26 @@ export function CobrarSubmitButton() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [pending]);
+    }, [isSubmitting]);
+
+    useEffect(() => {
+        if (!isSubmitting) return;
+
+        const safetyReset = setTimeout(() => {
+            setIsSubmitting(false);
+        }, 120000);
+
+        return () => clearTimeout(safetyReset);
+    }, [isSubmitting]);
 
     return (
         <Button
             type="submit"
             className="bg-emerald-600 hover:bg-emerald-700"
-            disabled={pending}
+            disabled={isSubmitting}
+            onClick={() => setIsSubmitting(true)}
         >
-            {pending ? `Cobrando... ${elapsed}s` : "Cobrar seleccionadas"}
+            {isSubmitting ? `Cobrando... ${elapsed}s` : "Cobrar seleccionadas"}
         </Button>
     );
 }
