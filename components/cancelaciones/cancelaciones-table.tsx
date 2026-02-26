@@ -78,6 +78,11 @@ export function CancelacionesTable({
 
   return (
     <div className="rounded-md border mt-2 overflow-auto shadow-sm">
+      {tipo === "impagas" &&
+        selectedIds.map((id) => (
+          <input key={id} type="hidden" name="cuotaId" value={id} />
+        ))}
+
       <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
@@ -112,7 +117,6 @@ export function CancelacionesTable({
                 <TableCell className="text-center">
                   <input
                     type="checkbox"
-                    name="cuotaId"
                     value={f.id_cuota}
                     checked={selectedIds.includes(f.id_cuota)}
                     onChange={() => toggleOne(f.id_cuota)}
