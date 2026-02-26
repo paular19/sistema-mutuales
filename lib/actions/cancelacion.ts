@@ -92,11 +92,11 @@ export async function cerrarCancelacion(periodo: string, liquidacionId?: number 
       where: { id_mutual_periodo: { id_mutual: ctx.mutualId, periodo } },
     });
 
-    if (existente) return { error: "Ese período ya fue cerrado." };
-
-    await tx.cancelacion.create({
-      data: { id_mutual: ctx.mutualId, periodo },
-    });
+    if (!existente) {
+      await tx.cancelacion.create({
+        data: { id_mutual: ctx.mutualId, periodo },
+      });
+    }
 
     if (liquidacionId) {
       await tx.liquidacion.updateMany({
@@ -108,7 +108,7 @@ export async function cerrarCancelacion(periodo: string, liquidacionId?: number 
     revalidatePath("/dashboard/cancelaciones");
     revalidatePath("/dashboard/liquidaciones");
 
-    return { success: true };
+    return { success: true, alreadyClosed: Boolean(existente) };
   });
 }
 
