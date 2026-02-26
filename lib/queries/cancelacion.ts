@@ -48,31 +48,36 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
       orderBy: { fecha_vencimiento: "asc" },
     });
 
-    const filas = cuotas.map((cuota) => {
-      const a = cuota.credito.asociado;
-      const asociado =
-        a.razon_social?.trim() ||
-        [a.apellido, a.nombre].filter(Boolean).join(" ") ||
-        null;
+    const filas = cuotas
+      .filter(
+        (cuota) =>
+          cuota.estado === EstadoCuota.pendiente || cuota.estado === EstadoCuota.vencida
+      )
+      .map((cuota) => {
+        const a = cuota.credito.asociado;
+        const asociado =
+          a.razon_social?.trim() ||
+          [a.apellido, a.nombre].filter(Boolean).join(" ") ||
+          null;
 
-      return {
-        id_cuota: cuota.id_cuota,
-        asociado,
-        dni_cuil: cuota.credito.asociado.cuit ?? "",
-        producto: cuota.credito.producto?.nombre ?? "-",
-        numero_cuenta: String(cuota.credito.codigo_externo ?? cuota.credito.id_asociado),
-        numero_ayuda: cuota.credito.id_credito,
-        numero_credito: cuota.credito.id_credito,
-        numero_cuota: cuota.numero_cuota,
-        fecha_vencimiento: cuota.fecha_vencimiento,
-        monto_total: cuota.monto_total,
-        estado: cuota.estado as EstadoCuota,
-      };
-    });
+        return {
+          id_cuota: cuota.id_cuota,
+          asociado,
+          dni_cuil: cuota.credito.asociado.cuit ?? "",
+          producto: cuota.credito.producto?.nombre ?? "-",
+          numero_cuenta: String(cuota.credito.codigo_externo ?? cuota.credito.id_asociado),
+          numero_ayuda: cuota.credito.id_credito,
+          numero_credito: cuota.credito.id_credito,
+          numero_cuota: cuota.numero_cuota,
+          fecha_vencimiento: cuota.fecha_vencimiento,
+          monto_total: cuota.monto_total,
+          estado: cuota.estado as EstadoCuota,
+        };
+      });
 
-    const cuotasPagadas = filas.filter((f) => f.estado === EstadoCuota.pagada);
-    const cuotasPendientes = filas.filter((f) => f.estado !== EstadoCuota.pagada);
-    const totalPagadas = cuotasPagadas.reduce((a, f) => a + f.monto_total, 0);
+    const cuotasPendientes = filas;
+    const cuotasPagadas: typeof cuotasPendientes = [];
+    const totalPagadas = 0;
     const totalPendientes = cuotasPendientes.reduce((a, f) => a + f.monto_total, 0);
 
     return {
