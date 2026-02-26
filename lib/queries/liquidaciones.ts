@@ -8,6 +8,7 @@ import { unstable_noStore as noStore } from "next/cache";
 export interface PreLiquidacionCuota {
   id_cuota: number;
   asociado: string;
+  dni_cuil: string;
   producto: string;
   numero_cuenta: string;
   numero_ayuda: number;
@@ -91,6 +92,7 @@ export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
           : [c.credito.asociado.apellido, c.credito.asociado.nombre]
             .filter(Boolean)
             .join(", "),
+      dni_cuil: c.credito.asociado.cuit ?? "",
       producto: c.credito.producto.nombre ?? "",
       numero_cuenta: String(c.credito.codigo_externo ?? c.credito.id_asociado),
       numero_ayuda: c.credito.id_credito,

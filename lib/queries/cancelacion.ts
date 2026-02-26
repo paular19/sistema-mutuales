@@ -66,6 +66,7 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
       return {
         id_cuota: cuota.id_cuota,
         asociado,
+        dni_cuil: cuota.credito.asociado.cuit ?? "",
         producto: cuota.credito.producto?.nombre ?? "-",
         numero_cuenta: String(cuota.credito.codigo_externo ?? cuota.credito.id_asociado),
         numero_ayuda: cuota.credito.id_credito,
