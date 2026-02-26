@@ -102,7 +102,7 @@ export async function getCreditos(params: any = {}) {
         .length;
 
       const cuotasPendientes = c.cuotas.filter(
-        (q: any) => q.estado === "pendiente"
+        (q: any) => q.estado === "vencida"
       ).length;
 
       const hasPagos = c.cuotas.some(

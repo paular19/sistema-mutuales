@@ -132,7 +132,7 @@ export function CreditosTable({
               <TableHead>Saldo inicial</TableHead>
               <TableHead>Saldo actual</TableHead>
               <TableHead>Cuotas pagadas</TableHead>
-              <TableHead>Cuotas pendientes</TableHead>
+              <TableHead>Cuotas vencidas</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-center">Acciones</TableHead>
             </TableRow>
