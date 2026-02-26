@@ -105,7 +105,7 @@ async function toPdfBuffer(title: string, rows: ExportFilaLiquidacionCancelacion
         const logoDims = logoImage.scale(0.18);
         page.drawImage(logoImage, {
             x: 842 - logoDims.width - 24,
-            y: 595 - logoDims.height - 24,
+            y: 595 - logoDims.height - 8,
             width: logoDims.width,
             height: logoDims.height,
         });
