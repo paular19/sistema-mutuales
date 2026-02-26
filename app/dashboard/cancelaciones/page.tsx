@@ -29,17 +29,7 @@ export default async function CancelacionesPage(props: {
   const data = await getCancelacionDesdeLiquidacion({ productoId });
   const productos = await getProductosOptions();
 
-  if (!data) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight">Cancelaciones</h1>
-        <p className="text-sm text-muted-foreground">
-          No hay una liquidación en estado <strong>generada</strong> o{" "}
-          <strong>revisada</strong> para reflejar.
-        </p>
-      </div>
-    );
-  }
+  if (!data) return null;
 
   const { periodo, liquidacionId, cuotasPagadas, cuotasPendientes, totalPagadas, totalPendientes } =
     data;
@@ -61,7 +51,7 @@ export default async function CancelacionesPage(props: {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Cancelaciones</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Basadas en la última liquidación – <strong>Período {periodo}</strong>
+            Cuotas vencidas al período – <strong>Período {periodo}</strong>
           </p>
         </div>
 
@@ -74,15 +64,7 @@ export default async function CancelacionesPage(props: {
           </Link>
 
           <form action={handleCerrar}>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              disabled={cuotasPendientes.length > 0}
-              title={
-                cuotasPendientes.length > 0
-                  ? "Primero cobrá todas las cuotas pendientes"
-                  : ""
-              }
-            >
+            <Button className="bg-emerald-600 hover:bg-emerald-700">
               Registrar cierre período {periodo}
             </Button>
           </form>

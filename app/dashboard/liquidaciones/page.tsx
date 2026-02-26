@@ -2,11 +2,9 @@
 export const dynamic = "force-dynamic";
 
 import { getPreLiquidacion } from "@/lib/queries/liquidaciones";
-import { generarLiquidacion } from "@/lib/actions/liquidaciones";
 import { LiquidacionesPageClient } from "@/components/liquidacion/liquidaciones-page-client";
 import { ProductoFilterExport } from "@/components/shared/producto-filter-export";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { getProductosOptions } from "@/lib/queries/productos";
 
@@ -37,7 +35,7 @@ export default async function LiquidacionesPage(props: {
   return (
     <div className="space-y-6">
       {/* 🧭 HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Liquidaciones
@@ -46,17 +44,6 @@ export default async function LiquidacionesPage(props: {
             Cuotas vencidas y arrastradas listas para liquidar
           </p>
         </div>
-
-        <form
-          action={async () => {
-            "use server";
-            await generarLiquidacion();
-          }}
-        >
-          <Button className="bg-emerald-600 hover:bg-emerald-700">
-            Generar liquidación
-          </Button>
-        </form>
       </div>
 
       <ProductoFilterExport

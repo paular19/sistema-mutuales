@@ -16,6 +16,8 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
   noStore();
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
+    const hoy = new Date();
+
     const liq = await tx.liquidacion.findFirst({
       where: {
         id_mutual: ctx.mutualId,
@@ -24,13 +26,12 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
       orderBy: { fecha_creacion: "desc" }, // ✅ existe en tu schema
     });
 
-    if (!liq) return null;
+    const periodoActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+    const periodo = liq?.periodo ?? periodoActual;
 
     const cuotas = await tx.cuota.findMany({
       where: {
-        liquidacionDetalle: {
-          some: { id_liquidacion: liq.id_liquidacion },
-        },
+        fecha_vencimiento: { lte: hoy },
         credito: {
           ...(filters.productoId ? { id_producto: filters.productoId } : {}),
           estado: { not: EstadoCredito.cancelado },
@@ -75,8 +76,8 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
     const totalPendientes = cuotasPendientes.reduce((a, f) => a + f.monto_total, 0);
 
     return {
-      periodo: liq.periodo,
-      liquidacionId: liq.id_liquidacion,
+      periodo,
+      liquidacionId: liq?.id_liquidacion ?? null,
       cuotasPagadas,
       cuotasPendientes,
       totalPagadas,

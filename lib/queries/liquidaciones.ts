@@ -2,7 +2,7 @@
 
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
-import { EstadoCredito, EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { EstadoCredito, EstadoCuota } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 
 export interface PreLiquidacionCuota {
@@ -23,28 +23,6 @@ interface PreLiquidacionFilters {
   productoId?: number;
 }
 
-export async function getHistorialLiquidaciones() {
-  noStore();
-
-  const info = await getServerUser();
-  if (!info?.mutualId) throw new Error("Mutual no detectada");
-
-  return withRLS(info.mutualId, info.userId, async (prisma) => {
-    return prisma.liquidacion.findMany({
-      orderBy: { fecha_cierre: "desc" },
-      select: {
-        id_liquidacion: true,
-        periodo: true,
-        fecha_cierre: true,
-        total_monto: true,
-        estado: true,
-        _count: {
-          select: { detalle: true },
-        },
-      },
-    });
-  });
-}
 
 export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
   noStore();
@@ -58,22 +36,11 @@ export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
     const cuotas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        fecha_vencimiento: { lte: hoy },
         credito: {
           ...(filters.productoId ? { id_producto: filters.productoId } : {}),
           estado: { not: EstadoCredito.cancelado },
         },
-        OR: [
-          { fecha_vencimiento: { lte: hoy } },
-          {
-            liquidacionDetalle: {
-              some: {
-                liquidacion: {
-                  estado: { not: EstadoLiquidacion.cerrada },
-                },
-              },
-            },
-          },
-        ],
       },
       include: {
         credito: {

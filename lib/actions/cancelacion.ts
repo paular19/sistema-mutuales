@@ -12,7 +12,7 @@ import * as XLSX from "xlsx";
  * Valida que pertenezcan a la liquidación.
  */
 export async function cobrarCuotasDesdeCancelacion(
-  liquidacionId: number,
+  liquidacionId: number | null,
   formData: FormData
 ) {
   const info = await getServerUser();
@@ -51,7 +51,7 @@ export async function cobrarCuotasDesdeCancelacion(
           id_mutual: ctx.mutualId,
           fecha_pago: hoy,
           monto_pago: total,
-          referencia: `CANCELACION-${liquidacionId}-${Date.now()}`,
+          referencia: `CANCELACION-${liquidacionId ?? "SINLIQ"}-${Date.now()}`,
           observaciones: "Cobranza desde cancelación",
         },
       });
@@ -83,7 +83,7 @@ export async function cobrarCuotasDesdeCancelacion(
  * Cerrar cancelación: crea Cancelacion (mutual+periodo) y cierra Liquidacion
  * Solo si NO quedan pendientes en esa liquidación.
  */
-export async function cerrarCancelacion(periodo: string, liquidacionId: number) {
+export async function cerrarCancelacion(periodo: string, liquidacionId?: number | null) {
   const info = await getServerUser();
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
@@ -94,26 +94,16 @@ export async function cerrarCancelacion(periodo: string, liquidacionId: number) 
 
     if (existente) return { error: "Ese período ya fue cerrado." };
 
-    const pendientes = await tx.liquidacionDetalle.count({
-      where: {
-        id_liquidacion: liquidacionId,
-        liquidacion: { id_mutual: ctx.mutualId },
-        cuota: { estado: { not: EstadoCuota.pagada } },
-      },
-    });
-
-    if (pendientes > 0) {
-      return { error: "No podés cerrar: aún hay cuotas pendientes en la liquidación." };
-    }
-
     await tx.cancelacion.create({
       data: { id_mutual: ctx.mutualId, periodo },
     });
 
-    await tx.liquidacion.update({
-      where: { id_liquidacion: liquidacionId },
-      data: { estado: EstadoLiquidacion.cerrada },
-    });
+    if (liquidacionId) {
+      await tx.liquidacion.updateMany({
+        where: { id_liquidacion: liquidacionId, id_mutual: ctx.mutualId },
+        data: { estado: EstadoLiquidacion.cerrada },
+      });
+    }
 
     revalidatePath("/dashboard/cancelaciones");
     revalidatePath("/dashboard/liquidaciones");
