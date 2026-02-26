@@ -6,6 +6,7 @@ import {
 
 import { CancelacionesTable } from "@/components/cancelaciones/cancelaciones-table";
 import { CancelacionesImport } from "@/components/cancelaciones/cancelaciones-import";
+import { CobrarSubmitButton } from "@/components/cancelaciones/cobrar-submit-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
@@ -109,12 +110,7 @@ export default async function CancelacionesPage(props: {
 
               {cuotasPendientes.length > 0 && (
                 <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    Cobrar seleccionadas
-                  </Button>
+                  <CobrarSubmitButton />
                 </div>
               )}
             </form>

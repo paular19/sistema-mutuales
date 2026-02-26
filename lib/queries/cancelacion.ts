@@ -16,8 +16,6 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
   noStore();
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
-    const hoy = new Date();
-
     const liq = await tx.liquidacion.findFirst({
       where: {
         id_mutual: ctx.mutualId,
@@ -30,23 +28,13 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
 
     const cuotas = await tx.cuota.findMany({
       where: {
-        estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        liquidacionDetalle: {
+          some: { id_liquidacion: liq.id_liquidacion },
+        },
         credito: {
           ...(filters.productoId ? { id_producto: filters.productoId } : {}),
           estado: { not: EstadoCredito.cancelado },
         },
-        OR: [
-          { fecha_vencimiento: { lte: hoy } },
-          {
-            liquidacionDetalle: {
-              some: {
-                liquidacion: {
-                  estado: { not: EstadoLiquidacion.cerrada },
-                },
-              },
-            },
-          },
-        ],
       },
       include: {
         credito: {
@@ -59,7 +47,7 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
       orderBy: { fecha_vencimiento: "asc" },
     });
 
-    const cuotasPendientes = cuotas.map((cuota) => {
+    const filas = cuotas.map((cuota) => {
       const a = cuota.credito.asociado;
       const asociado =
         a.razon_social?.trim() ||
@@ -81,8 +69,9 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
       };
     });
 
-    const cuotasPagadas: typeof cuotasPendientes = [];
-    const totalPagadas = 0;
+    const cuotasPagadas = filas.filter((f) => f.estado === EstadoCuota.pagada);
+    const cuotasPendientes = filas.filter((f) => f.estado !== EstadoCuota.pagada);
+    const totalPagadas = cuotasPagadas.reduce((a, f) => a + f.monto_total, 0);
     const totalPendientes = cuotasPendientes.reduce((a, f) => a + f.monto_total, 0);
 
     return {
