@@ -2,7 +2,7 @@
 
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
-import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { EstadoCredito, EstadoCuota, EstadoLiquidacion } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 
 /**
@@ -31,7 +31,10 @@ export async function getCancelacionDesdeLiquidacion(filters: { productoId?: num
     const cuotas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
-        ...(filters.productoId ? { credito: { id_producto: filters.productoId } } : {}),
+        credito: {
+          ...(filters.productoId ? { id_producto: filters.productoId } : {}),
+          estado: { not: EstadoCredito.cancelado },
+        },
         OR: [
           { fecha_vencimiento: { lte: hoy } },
           {

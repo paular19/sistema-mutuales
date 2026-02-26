@@ -2,7 +2,7 @@
 
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
-import { EstadoCuota, EstadoLiquidacion } from "@prisma/client";
+import { EstadoCredito, EstadoCuota, EstadoLiquidacion } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 export async function generarLiquidacion() {
@@ -18,6 +18,9 @@ export async function generarLiquidacion() {
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
         fecha_vencimiento: { lte: hoy },
+        credito: {
+          estado: { not: EstadoCredito.cancelado },
+        },
       },
     });
 
@@ -25,6 +28,9 @@ export async function generarLiquidacion() {
     const arrastradas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
+        credito: {
+          estado: { not: EstadoCredito.cancelado },
+        },
         liquidacionDetalle: {
           some: {
             liquidacion: {
