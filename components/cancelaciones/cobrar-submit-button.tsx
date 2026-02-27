@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export function CobrarSubmitButton() {
-    const [isSubmitting, setIsSubmitting] = useState(false);
+interface CobrarSubmitButtonProps {
+    pending?: boolean;
+}
+
+export function CobrarSubmitButton({ pending = false }: CobrarSubmitButtonProps) {
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
-        if (!isSubmitting) {
+        if (!pending) {
             setElapsed(0);
             return;
         }
@@ -18,26 +21,15 @@ export function CobrarSubmitButton() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isSubmitting]);
-
-    useEffect(() => {
-        if (!isSubmitting) return;
-
-        const safetyReset = setTimeout(() => {
-            setIsSubmitting(false);
-        }, 120000);
-
-        return () => clearTimeout(safetyReset);
-    }, [isSubmitting]);
+    }, [pending]);
 
     return (
         <Button
             type="submit"
             className="bg-emerald-600 hover:bg-emerald-700"
-            disabled={isSubmitting}
-            onClick={() => setIsSubmitting(true)}
+            disabled={pending}
         >
-            {isSubmitting ? `Cobrando... ${elapsed}s` : "Cobrar seleccionadas"}
+            {pending ? `Cobrando... ${elapsed}s` : "Cobrar seleccionadas"}
         </Button>
     );
 }

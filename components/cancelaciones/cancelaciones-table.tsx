@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { EstadoCuota } from "@prisma/client";
 
-interface CuotaRow {
+export interface CuotaRow {
   id_cuota: number;
   asociado: string | null;
   producto: string;

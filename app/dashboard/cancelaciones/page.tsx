@@ -1,9 +1,8 @@
 import { getCancelacionDesdeLiquidacion } from "@/lib/queries/cancelacion";
 import { cobrarCuotasDesdeCancelacion } from "@/lib/actions/cancelacion";
 
-import { CancelacionesTable } from "@/components/cancelaciones/cancelaciones-table";
 import { CancelacionesImport } from "@/components/cancelaciones/cancelaciones-import";
-import { CobrarSubmitButton } from "@/components/cancelaciones/cobrar-submit-button";
+import { CancelacionesCobroForm } from "@/components/cancelaciones/cancelaciones-cobro-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProductosOptions } from "@/lib/queries/productos";
 import { ProductoFilterExport } from "@/components/shared/producto-filter-export";
@@ -25,11 +24,7 @@ export default async function CancelacionesPage(props: {
   if (!data) return null;
 
   const { liquidacionId, cuotasPendientes } = data;
-
-  async function handleCobrar(formData: FormData) {
-    "use server";
-    return cobrarCuotasDesdeCancelacion(liquidacionId, formData);
-  }
+  const handleCobrar = cobrarCuotasDesdeCancelacion.bind(null, liquidacionId);
 
   return (
     <div className="space-y-6">
@@ -56,15 +51,7 @@ export default async function CancelacionesPage(props: {
 
         <Card>
           <CardContent className="pt-6">
-            <form action={handleCobrar} className="space-y-6">
-              <CancelacionesTable filas={cuotasPendientes} tipo="impagas" />
-
-              {cuotasPendientes.length > 0 && (
-                <div className="flex justify-end">
-                  <CobrarSubmitButton />
-                </div>
-              )}
-            </form>
+            <CancelacionesCobroForm filas={cuotasPendientes} action={handleCobrar} />
           </CardContent>
         </Card>
       </section>
