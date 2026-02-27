@@ -37,9 +37,17 @@ export function CancelacionesTable({
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const filaIds = useMemo(() => filas.map((f) => f.id_cuota), [filas]);
+  const montosById = useMemo(
+    () => new Map(filas.map((f) => [f.id_cuota, f.monto_total])),
+    [filas]
+  );
   const totalFilas = filaIds.length;
   const allSelected = tipo === "impagas" && totalFilas > 0 && selectedIds.length === totalFilas;
   const someSelected = tipo === "impagas" && selectedIds.length > 0 && selectedIds.length < totalFilas;
+  const totalSeleccionado = useMemo(
+    () => selectedIds.reduce((acc, id) => acc + (montosById.get(id) ?? 0), 0),
+    [selectedIds, montosById]
+  );
 
   useEffect(() => {
     setSelectedIds([]);
@@ -155,6 +163,15 @@ export function CancelacionesTable({
           ))}
         </TableBody>
       </Table>
+
+      {tipo === "impagas" && (
+        <div className="border-t px-4 py-3 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {selectedIds.length} cuota{selectedIds.length === 1 ? "" : "s"} seleccionada{selectedIds.length === 1 ? "" : "s"}
+          </span>
+          <span className="font-semibold">Total seleccionado: {formatCurrency(totalSeleccionado)}</span>
+        </div>
+      )}
     </div>
   );
 }
