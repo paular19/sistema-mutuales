@@ -21,8 +21,18 @@ export interface PreLiquidacionCuota {
 
 interface PreLiquidacionFilters {
   productoId?: number;
+  fechaCorte?: string;
 }
 
+function parseFechaCorte(fechaCorte?: string): Date | null {
+  if (!fechaCorte) return null;
+
+  const [y, m, d] = fechaCorte.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const fecha = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
 
 export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
   noStore();
@@ -31,12 +41,13 @@ export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
   if (!info?.mutualId) throw new Error("Mutual no detectada");
 
   const hoy = new Date();
+  const fechaLimite = parseFechaCorte(filters.fechaCorte) ?? hoy;
 
   return withRLS(info.mutualId, info.userId, async (tx) => {
     const cuotas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
-        fecha_vencimiento: { lte: hoy },
+        fecha_vencimiento: { lte: fechaLimite },
         credito: {
           ...(filters.productoId ? { id_producto: filters.productoId } : {}),
           estado: { not: EstadoCredito.cancelado },
