@@ -20,6 +20,7 @@ export interface ExportFilaLiquidacionCancelacion {
 
 interface ExportOptions {
     productoId?: number;
+    fechaCorte?: string;
     format: "xlsx" | "pdf";
 }
 
@@ -232,7 +233,10 @@ function currentDateKey() {
 }
 
 export async function exportLiquidacionesAction(options: ExportOptions) {
-    const data = await getPreLiquidacion({ productoId: options.productoId });
+    const data = await getPreLiquidacion({
+        productoId: options.productoId,
+        fechaCorte: options.fechaCorte,
+    });
 
     const rows: ExportFilaLiquidacionCancelacion[] = data.cuotas.map((cuota) => ({
         asociado: cuota.asociado,

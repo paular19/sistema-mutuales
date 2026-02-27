@@ -50,11 +50,14 @@ export function ProductoFilterExport({
     };
 
     const buildExportUrl = (format: "xlsx" | "pdf") => {
-        const params = new URLSearchParams();
+        const params = new URLSearchParams(searchParams.toString());
         params.set("format", format);
+        params.delete("page");
 
         if (selectedProductoId) {
             params.set("productoId", String(selectedProductoId));
+        } else {
+            params.delete("productoId");
         }
 
         return `${exportBasePath}?${params.toString()}`;
