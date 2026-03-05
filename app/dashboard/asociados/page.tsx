@@ -34,6 +34,11 @@ export default async function AsociadosPage(props: {
         </div>
 
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/asociados/actualizar-masivo">
+              Actualización masiva
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/dashboard/asociados/new">
               <Plus className="mr-2 h-4 w-4" />

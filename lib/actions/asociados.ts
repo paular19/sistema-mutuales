@@ -177,6 +177,189 @@ export async function importAsociadosAction(formData: FormData) {
 
 
 /* =============================================================
+   📊 OBTENER COLUMNAS DEL EXCEL (para mapeo de campos)
+============================================================= */
+export async function getExcelHeaders(
+  formData: FormData
+): Promise<{ headers?: string[]; error?: string }> {
+  try {
+    await getInfoOrThrow();
+
+    const file = formData.get("file") as File | null;
+    if (!file) return { error: "No se subió ningún archivo" };
+
+    const buf = Buffer.from(await file.arrayBuffer());
+    const workbook = XLSX.read(buf);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+    if (rows.length === 0) return { error: "El archivo está vacío" };
+
+    return { headers: rows[0].map(String) };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/* =============================================================
+   📤 ACTUALIZAR MASIVO DESDE EXCEL (con mapeo de columnas)
+============================================================= */
+export async function actualizarMasivoAsociadosAction(formData: FormData) {
+  try {
+    const { userId, mutualId } = await getInfoOrThrow();
+
+    const file = formData.get("file") as File | null;
+    if (!file) return { error: "No se subió ningún archivo" };
+
+    const keyField = formData.get("keyField") as string; // "cuit" | "id_asociado"
+    const keyColumn = formData.get("keyColumn") as string; // nombre de col en Excel
+    const mappingStr = formData.get("mapping") as string;
+    const mapping: Record<string, string> = JSON.parse(mappingStr); // { campoSistema: columnaExcel }
+
+    const buf = Buffer.from(await file.arrayBuffer());
+    const workbook = XLSX.read(buf);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+    const results: { row: number; success: boolean; errors?: string[] }[] = [];
+    let successCount = 0;
+
+    await withRLS(mutualId, userId, async (tx) => {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const keyValue = row[keyColumn];
+
+        if (keyValue === undefined || keyValue === null || keyValue === "") {
+          results.push({
+            row: i + 2,
+            success: false,
+            errors: ["Valor de clave vacío"],
+          });
+          continue;
+        }
+
+        try {
+          const whereClause =
+            keyField === "id_asociado"
+              ? { id_asociado: Number(keyValue) }
+              : { cuit: String(keyValue) };
+
+          const existing = await tx.asociado.findFirst({ where: whereClause });
+
+          if (!existing) {
+            results.push({
+              row: i + 2,
+              success: false,
+              errors: [
+                `No se encontró asociado con ${keyField} = ${keyValue}`,
+              ],
+            });
+            continue;
+          }
+
+          const updateData: Record<string, any> = {};
+
+          for (const [sysField, excelCol] of Object.entries(mapping)) {
+            if (!excelCol) continue;
+            const rawVal = row[excelCol];
+            if (rawVal === undefined || rawVal === null || rawVal === "")
+              continue;
+
+            switch (sysField) {
+              // Campo especial: nombre y apellido combinados (ej: "GARCIA Juan")
+              case "apenom": {
+                const fullName = String(rawVal).trim();
+                const spaceIdx = fullName.indexOf(" ");
+                if (spaceIdx > -1) {
+                  updateData["apellido"] = fullName
+                    .substring(0, spaceIdx)
+                    .trim();
+                  updateData["nombre"] = fullName
+                    .substring(spaceIdx + 1)
+                    .trim();
+                } else {
+                  updateData["apellido"] = fullName;
+                }
+                break;
+              }
+              case "sueldo_mes":
+              case "sueldo_ano":
+              case "numero_calle":
+              case "id_tipo":
+                updateData[sysField] = Number(rawVal);
+                break;
+              case "fecha_nac":
+                updateData[sysField] = new Date(rawVal);
+                break;
+              case "tiene_conyuge":
+              case "es_extranjero":
+              case "recibe_notificaciones":
+              case "dec_jurada":
+                updateData[sysField] = toBool(rawVal);
+                break;
+              case "tipo_persona":
+                updateData[sysField] =
+                  String(rawVal).toLowerCase() === "juridica"
+                    ? TipoPersona.juridica
+                    : TipoPersona.fisica;
+                break;
+              case "convenio": {
+                const convenioMap: Record<string, string> = {
+                  tres_de_abril: "TRES_DE_ABRIL",
+                  centro: "CENTRO",
+                  clinica_san_rafael: "CLINICA_SAN_RAFAEL",
+                };
+                const key = String(rawVal)
+                  .toLowerCase()
+                  .replace(/\s+/g, "_");
+                updateData[sysField] = convenioMap[key] ?? String(rawVal);
+                break;
+              }
+              default:
+                updateData[sysField] = String(rawVal);
+            }
+          }
+
+          if (Object.keys(updateData).length === 0) {
+            results.push({
+              row: i + 2,
+              success: false,
+              errors: ["No hay campos mapeados con valor en esta fila"],
+            });
+            continue;
+          }
+
+          await tx.asociado.update({
+            where: { id_asociado: existing.id_asociado },
+            data: updateData,
+          });
+
+          successCount++;
+          results.push({ row: i + 2, success: true });
+        } catch (err) {
+          results.push({
+            row: i + 2,
+            success: false,
+            errors: [getErrorMessage(err)],
+          });
+        }
+      }
+    });
+
+    revalidatePath("/dashboard/asociados");
+
+    return {
+      success: true,
+      successCount,
+      errorCount: results.length - successCount,
+      results,
+    };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/* =============================================================
    🟢 CREAR ASOCIADO (CON VALIDACIONES CORRECTAS)
 ============================================================= */
 export async function createAsociado(prevState: any, formData: FormData) {
