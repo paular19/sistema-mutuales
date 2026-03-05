@@ -232,6 +232,7 @@ export function ActualizarMasivoForm() {
                 <SelectContent>
                   <SelectItem value="cuit">CUIT</SelectItem>
                   <SelectItem value="id_asociado">ID Asociado</SelectItem>
+                  <SelectItem value="apenom">Nombre y Apellido</SelectItem>
                 </SelectContent>
               </Select>
             </div>

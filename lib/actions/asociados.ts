@@ -321,38 +321,74 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
       };
     }
 
+    // ── Normaliza una clave apenom a "APELLIDO NOMBRE" para comparar
+    const normalizeApenom = (raw: string) =>
+      raw.trim().toUpperCase().split(/\s+/).join(" ");
+
     // ── FASE 2: Un solo findMany para obtener todos los id_asociado de golpe
     const existingMap = await withRLS(mutualId, userId, async (tx) => {
       const keyValues = tasks.map((t) => t.keyValue);
 
+      if (keyField === "id_asociado") {
+        const found = await tx.asociado.findMany({
+          where: { id_asociado: { in: keyValues.map(Number) } },
+          select: { id_asociado: true },
+        });
+        return new Map<string, number>(
+          found.map((a) => [String(a.id_asociado), a.id_asociado])
+        );
+      }
+
+      if (keyField === "cuit") {
+        const found = await tx.asociado.findMany({
+          where: { cuit: { in: keyValues } },
+          select: { id_asociado: true, cuit: true },
+        });
+        return new Map<string, number>(
+          found.map((a) => [a.cuit ?? "", a.id_asociado])
+        );
+      }
+
+      // keyField === "apenom": buscar por apellido + nombre (case-insensitive)
+      const nameParts = keyValues.map((v) => {
+        const parts = v.trim().split(/\s+/);
+        return { apellido: parts[0], nombre: parts.slice(1).join(" ") };
+      });
+
       const found = await tx.asociado.findMany({
-        where:
-          keyField === "id_asociado"
-            ? { id_asociado: { in: keyValues.map(Number) } }
-            : { cuit: { in: keyValues } },
-        select: { id_asociado: true, cuit: true },
+        where: {
+          OR: nameParts.map((n) => ({
+            apellido: { equals: n.apellido, mode: "insensitive" as const },
+            nombre: { equals: n.nombre, mode: "insensitive" as const },
+          })),
+        },
+        select: { id_asociado: true, apellido: true, nombre: true },
       });
 
       return new Map<string, number>(
-        found.map((a) => [
-          keyField === "id_asociado"
-            ? String(a.id_asociado)
-            : (a.cuit ?? ""),
-          a.id_asociado,
-        ])
+        found.map((a) => {
+          const key = normalizeApenom(
+            `${a.apellido ?? ""} ${a.nombre ?? ""}`
+          );
+          return [key, a.id_asociado];
+        })
       );
     });
 
     // ── FASE 3: Un update por fila (solo set_config + UPDATE, sin findFirst)
     for (const task of tasks) {
-      const id_asociado = existingMap.get(task.keyValue);
+      const lookupKey =
+        keyField === "apenom"
+          ? normalizeApenom(task.keyValue)
+          : task.keyValue;
+      const id_asociado = existingMap.get(lookupKey);
 
       if (!id_asociado) {
         results.push({
           row: task.rowIndex + 2,
           success: false,
           errors: [
-            `No se encontró asociado con ${keyField} = ${task.keyValue}`,
+            `No se encontró asociado con ${keyField === "apenom" ? "nombre" : keyField} = ${task.keyValue}`,
           ],
         });
         continue;
