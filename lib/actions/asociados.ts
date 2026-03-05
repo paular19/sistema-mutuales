@@ -224,6 +224,14 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
     const results: { row: number; success: boolean; errors?: string[] }[] = [];
     let successCount = 0;
 
+    // ── FASE 1: Calcular updateData por fila (sin tocar la BD)
+    type Task = {
+      rowIndex: number;
+      keyValue: string;
+      updateData: Record<string, any>;
+    };
+    const tasks: Task[] = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const keyValue = row[keyColumn];
@@ -237,110 +245,131 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
         continue;
       }
 
-      try {
-        // Cada fila tiene su propia transacción para evitar timeout
-        await withRLS(mutualId, userId, async (tx) => {
-          const whereClause =
-            keyField === "id_asociado"
-              ? { id_asociado: Number(keyValue) }
-              : { cuit: String(keyValue) };
+      const updateData: Record<string, any> = {};
 
-          const existing = await tx.asociado.findFirst({ where: whereClause });
+      for (const [sysField, excelCol] of Object.entries(mapping)) {
+        if (!excelCol) continue;
+        const rawVal = row[excelCol];
+        if (rawVal === undefined || rawVal === null || rawVal === "") continue;
 
-          if (!existing) {
-            results.push({
-              row: i + 2,
-              success: false,
-              errors: [
-                `No se encontró asociado con ${keyField} = ${keyValue}`,
-              ],
-            });
-            return;
-          }
-
-          const updateData: Record<string, any> = {};
-
-          for (const [sysField, excelCol] of Object.entries(mapping)) {
-            if (!excelCol) continue;
-            const rawVal = row[excelCol];
-            if (rawVal === undefined || rawVal === null || rawVal === "")
-              continue;
-
-            switch (sysField) {
-              // Campo especial: nombre y apellido combinados (ej: "GARCIA Juan")
-              case "apenom": {
-                const fullName = String(rawVal).trim();
-                const spaceIdx = fullName.indexOf(" ");
-                if (spaceIdx > -1) {
-                  updateData["apellido"] = fullName
-                    .substring(0, spaceIdx)
-                    .trim();
-                  updateData["nombre"] = fullName
-                    .substring(spaceIdx + 1)
-                    .trim();
-                } else {
-                  updateData["apellido"] = fullName;
-                }
-                break;
-              }
-              case "sueldo_mes":
-              case "sueldo_ano":
-              case "numero_calle":
-              case "id_tipo":
-                updateData[sysField] = Number(rawVal);
-                break;
-              case "fecha_nac":
-                updateData[sysField] = new Date(rawVal);
-                break;
-              case "tiene_conyuge":
-              case "es_extranjero":
-              case "recibe_notificaciones":
-              case "dec_jurada":
-                updateData[sysField] = toBool(rawVal);
-                break;
-              case "tipo_persona":
-                updateData[sysField] =
-                  String(rawVal).toLowerCase() === "juridica"
-                    ? TipoPersona.juridica
-                    : TipoPersona.fisica;
-                break;
-              case "convenio": {
-                const convenioMap: Record<string, string> = {
-                  tres_de_abril: "TRES_DE_ABRIL",
-                  centro: "CENTRO",
-                  clinica_san_rafael: "CLINICA_SAN_RAFAEL",
-                };
-                const key = String(rawVal)
-                  .toLowerCase()
-                  .replace(/\s+/g, "_");
-                updateData[sysField] = convenioMap[key] ?? String(rawVal);
-                break;
-              }
-              default:
-                updateData[sysField] = String(rawVal);
+        switch (sysField) {
+          case "apenom": {
+            const fullName = String(rawVal).trim();
+            const spaceIdx = fullName.indexOf(" ");
+            if (spaceIdx > -1) {
+              updateData["apellido"] = fullName.substring(0, spaceIdx).trim();
+              updateData["nombre"] = fullName.substring(spaceIdx + 1).trim();
+            } else {
+              updateData["apellido"] = fullName;
             }
+            break;
           }
-
-          if (Object.keys(updateData).length === 0) {
-            results.push({
-              row: i + 2,
-              success: false,
-              errors: ["No hay campos mapeados con valor en esta fila"],
-            });
-            return;
+          case "sueldo_mes":
+          case "sueldo_ano":
+          case "numero_calle":
+          case "id_tipo":
+            updateData[sysField] = Number(rawVal);
+            break;
+          case "fecha_nac":
+            updateData[sysField] = new Date(rawVal);
+            break;
+          case "tiene_conyuge":
+          case "es_extranjero":
+          case "recibe_notificaciones":
+          case "dec_jurada":
+            updateData[sysField] = toBool(rawVal);
+            break;
+          case "tipo_persona":
+            updateData[sysField] =
+              String(rawVal).toLowerCase() === "juridica"
+                ? TipoPersona.juridica
+                : TipoPersona.fisica;
+            break;
+          case "convenio": {
+            const convenioMap: Record<string, string> = {
+              tres_de_abril: "TRES_DE_ABRIL",
+              centro: "CENTRO",
+              clinica_san_rafael: "CLINICA_SAN_RAFAEL",
+            };
+            const key = String(rawVal).toLowerCase().replace(/\s+/g, "_");
+            updateData[sysField] = convenioMap[key] ?? String(rawVal);
+            break;
           }
+          default:
+            updateData[sysField] = String(rawVal);
+        }
+      }
 
-          await tx.asociado.update({
-            where: { id_asociado: existing.id_asociado },
-            data: updateData,
-          });
-
-          successCount++;
-          results.push({ row: i + 2, success: true });
-        });
-      } catch (err) {
+      if (Object.keys(updateData).length === 0) {
         results.push({
           row: i + 2,
+          success: false,
+          errors: ["No hay campos mapeados con valor en esta fila"],
+        });
+        continue;
+      }
+
+      tasks.push({ rowIndex: i, keyValue: String(keyValue), updateData });
+    }
+
+    if (tasks.length === 0) {
+      return {
+        success: true,
+        successCount: 0,
+        errorCount: results.length,
+        results,
+      };
+    }
+
+    // ── FASE 2: Un solo findMany para obtener todos los id_asociado de golpe
+    const existingMap = await withRLS(mutualId, userId, async (tx) => {
+      const keyValues = tasks.map((t) => t.keyValue);
+
+      const found = await tx.asociado.findMany({
+        where:
+          keyField === "id_asociado"
+            ? { id_asociado: { in: keyValues.map(Number) } }
+            : { cuit: { in: keyValues } },
+        select: { id_asociado: true, cuit: true },
+      });
+
+      return new Map<string, number>(
+        found.map((a) => [
+          keyField === "id_asociado"
+            ? String(a.id_asociado)
+            : (a.cuit ?? ""),
+          a.id_asociado,
+        ])
+      );
+    });
+
+    // ── FASE 3: Un update por fila (solo set_config + UPDATE, sin findFirst)
+    for (const task of tasks) {
+      const id_asociado = existingMap.get(task.keyValue);
+
+      if (!id_asociado) {
+        results.push({
+          row: task.rowIndex + 2,
+          success: false,
+          errors: [
+            `No se encontró asociado con ${keyField} = ${task.keyValue}`,
+          ],
+        });
+        continue;
+      }
+
+      try {
+        await withRLS(mutualId, userId, async (tx) => {
+          await tx.asociado.update({
+            where: { id_asociado },
+            data: task.updateData,
+          });
+        });
+        successCount++;
+        results.push({ row: task.rowIndex + 2, success: true });
+      } catch (err) {
+        results.push({
+          row: task.rowIndex + 2,
           success: false,
           errors: [getErrorMessage(err)],
         });
