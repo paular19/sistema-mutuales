@@ -349,24 +349,15 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
         );
       }
 
-      // keyField === "apenom": buscar por apellido + nombre (case-insensitive)
-      const nameParts = keyValues.map((v) => {
-        const parts = v.trim().split(/\s+/);
-        return { apellido: parts[0], nombre: parts.slice(1).join(" ") };
-      });
-
-      const found = await tx.asociado.findMany({
-        where: {
-          OR: nameParts.map((n) => ({
-            apellido: { equals: n.apellido, mode: "insensitive" as const },
-            nombre: { equals: n.nombre, mode: "insensitive" as const },
-          })),
-        },
+      // keyField === "apenom": traer todos los asociados y comparar
+      // apellido+nombre concatenados contra el valor completo del Excel.
+      // Así funciona sin importar cuántas palabras tiene el apellido.
+      const allAsociados = await tx.asociado.findMany({
         select: { id_asociado: true, apellido: true, nombre: true },
       });
 
       return new Map<string, number>(
-        found.map((a) => {
+        allAsociados.map((a) => {
           const key = normalizeApenom(
             `${a.apellido ?? ""} ${a.nombre ?? ""}`
           );
