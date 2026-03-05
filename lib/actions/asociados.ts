@@ -224,21 +224,22 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
     const results: { row: number; success: boolean; errors?: string[] }[] = [];
     let successCount = 0;
 
-    await withRLS(mutualId, userId, async (tx) => {
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const keyValue = row[keyColumn];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const keyValue = row[keyColumn];
 
-        if (keyValue === undefined || keyValue === null || keyValue === "") {
-          results.push({
-            row: i + 2,
-            success: false,
-            errors: ["Valor de clave vacío"],
-          });
-          continue;
-        }
+      if (keyValue === undefined || keyValue === null || keyValue === "") {
+        results.push({
+          row: i + 2,
+          success: false,
+          errors: ["Valor de clave vacío"],
+        });
+        continue;
+      }
 
-        try {
+      try {
+        // Cada fila tiene su propia transacción para evitar timeout
+        await withRLS(mutualId, userId, async (tx) => {
           const whereClause =
             keyField === "id_asociado"
               ? { id_asociado: Number(keyValue) }
@@ -254,7 +255,7 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
                 `No se encontró asociado con ${keyField} = ${keyValue}`,
               ],
             });
-            continue;
+            return;
           }
 
           const updateData: Record<string, any> = {};
@@ -326,7 +327,7 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
               success: false,
               errors: ["No hay campos mapeados con valor en esta fila"],
             });
-            continue;
+            return;
           }
 
           await tx.asociado.update({
@@ -336,15 +337,15 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
 
           successCount++;
           results.push({ row: i + 2, success: true });
-        } catch (err) {
-          results.push({
-            row: i + 2,
-            success: false,
-            errors: [getErrorMessage(err)],
-          });
-        }
+        });
+      } catch (err) {
+        results.push({
+          row: i + 2,
+          success: false,
+          errors: [getErrorMessage(err)],
+        });
       }
-    });
+    }
 
     revalidatePath("/dashboard/asociados");
 
