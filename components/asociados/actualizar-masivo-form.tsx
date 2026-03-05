@@ -237,7 +237,7 @@ export function ActualizarMasivoForm() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Columna del Excel</Label>
-              <Select value={keyColumn} onValueChange={setKeyColumn}>
+              <Select value={keyColumn || undefined} onValueChange={setKeyColumn}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar columna..." />
                 </SelectTrigger>
