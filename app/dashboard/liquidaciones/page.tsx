@@ -13,6 +13,7 @@ import { getProductosOptions } from "@/lib/queries/productos";
 interface SearchParams {
   page?: string;
   productoId?: string;
+  fechaDesde?: string;
   fechaCorte?: string;
 }
 
@@ -25,11 +26,12 @@ export default async function LiquidacionesPage(props: {
   const page = Number(searchParams.page ?? 1);
   const productoIdRaw = Number(searchParams.productoId);
   const productoId = Number.isFinite(productoIdRaw) && productoIdRaw > 0 ? productoIdRaw : undefined;
+  const fechaDesde = searchParams.fechaDesde?.trim() || "";
   const fechaCorte = searchParams.fechaCorte?.trim() || "";
   const limit = 10;
 
   // 🔹 Pre-liquidación on-demand (vencidas + arrastradas)
-  const { cuotas, total } = await getPreLiquidacion({ productoId, fechaCorte });
+  const { cuotas, total } = await getPreLiquidacion({ productoId, fechaDesde, fechaCorte });
   const productos = await getProductosOptions();
 
   const totalPages = Math.max(1, Math.ceil(cuotas.length / limit));
@@ -52,8 +54,14 @@ export default async function LiquidacionesPage(props: {
         <form method="get" className="flex flex-col sm:flex-row gap-2 sm:items-end">
           {productoId ? <input type="hidden" name="productoId" value={productoId} /> : null}
           <div className="space-y-1">
+            <label htmlFor="fechaDesde" className="text-sm text-muted-foreground">
+              Desde
+            </label>
+            <Input id="fechaDesde" name="fechaDesde" type="date" defaultValue={fechaDesde} />
+          </div>
+          <div className="space-y-1">
             <label htmlFor="fechaCorte" className="text-sm text-muted-foreground">
-              Vista previa hasta fecha
+              Hasta
             </label>
             <Input id="fechaCorte" name="fechaCorte" type="date" defaultValue={fechaCorte} />
           </div>

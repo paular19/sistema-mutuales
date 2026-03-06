@@ -21,6 +21,7 @@ export interface PreLiquidacionCuota {
 
 interface PreLiquidacionFilters {
   productoId?: number;
+  fechaDesde?: string;
   fechaCorte?: string;
 }
 
@@ -34,6 +35,16 @@ function parseFechaCorte(fechaCorte?: string): Date | null {
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
 
+function parseFechaDesde(fechaDesde?: string): Date | null {
+  if (!fechaDesde) return null;
+
+  const [y, m, d] = fechaDesde.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const fecha = new Date(y, m - 1, d, 0, 0, 0, 0);
+  return Number.isNaN(fecha.getTime()) ? null : fecha;
+}
+
 export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
   noStore();
 
@@ -42,12 +53,16 @@ export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
 
   const hoy = new Date();
   const fechaLimite = parseFechaCorte(filters.fechaCorte) ?? hoy;
+  const fechaInicio = parseFechaDesde(filters.fechaDesde);
 
   return withRLS(info.mutualId, info.userId, async (tx) => {
     const cuotas = await tx.cuota.findMany({
       where: {
         estado: { in: [EstadoCuota.pendiente, EstadoCuota.vencida] },
-        fecha_vencimiento: { lte: fechaLimite },
+        fecha_vencimiento: {
+          lte: fechaLimite,
+          ...(fechaInicio ? { gte: fechaInicio } : {}),
+        },
         credito: {
           ...(filters.productoId ? { id_producto: filters.productoId } : {}),
           estado: { not: EstadoCredito.cancelado },
