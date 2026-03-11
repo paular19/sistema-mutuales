@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { withRLS } from "@/lib/db/with-rls";
 import { getServerUser } from "@/lib/auth/get-server-user";
+import { Prisma } from "@prisma/client";
 
 // -------------------------------------------------------------
 // Tipos
@@ -20,6 +21,15 @@ export interface InformeSaldosRow {
   dia_vencimiento: Date | null;
   tasa_interes: number;
   estado_credito: string;
+}
+
+export interface CentralDeudorRawRow {
+  cuit_mutual: string;
+  cuit_asociado: string;
+  apellido: string;
+  nombre: string;
+  saldo_deuda: number;
+  primera_vencida: Date | null;
 }
 
 // -------------------------------------------------------------
@@ -172,5 +182,49 @@ export async function getInforme3688(periodo?: string, umbral = 1_600_000) {
     }
 
     return filas;
+  });
+}
+
+/**
+ * Obtiene deudores por crédito con cuotas impagas usando agregación en SQL.
+ * Está optimizada para datasets grandes evitando traer cuotas individuales al servidor.
+ */
+export async function getCentralDeudoresRawData(
+  idMutual: number,
+  fechaCorte: Date,
+  clerkId: string
+): Promise<CentralDeudorRawRow[]> {
+  return withRLS(idMutual, clerkId, async (tx) => {
+    const rows = await tx.$queryRaw<CentralDeudorRawRow[]>(Prisma.sql`
+      WITH cuotas_impagas AS (
+        SELECT
+          c.id_credito,
+          cr.id_asociado,
+          cr.id_mutual,
+          SUM(c.monto_total)::double precision AS saldo_deuda,
+          MIN(c.fecha_vencimiento) FILTER (
+            WHERE c.fecha_vencimiento::date < ${fechaCorte}::date
+          ) AS primera_vencida
+        FROM cuotas c
+        INNER JOIN creditos cr ON cr.id_credito = c.id_credito
+        WHERE cr.id_mutual = ${idMutual}
+          AND c.estado IN ('pendiente', 'vencida', 'parcial')
+        GROUP BY c.id_credito, cr.id_asociado, cr.id_mutual
+        HAVING SUM(c.monto_total) > 0
+      )
+      SELECT
+        COALESCE(NULLIF(m.cuit, ''), 'NO CARGADO') AS cuit_mutual,
+        COALESCE(NULLIF(a.cuit, ''), 'NO CARGADO') AS cuit_asociado,
+        COALESCE(NULLIF(a.apellido, ''), 'NO CARGADO') AS apellido,
+        COALESCE(NULLIF(a.nombre, ''), 'NO CARGADO') AS nombre,
+        ci.saldo_deuda,
+        ci.primera_vencida
+      FROM cuotas_impagas ci
+      INNER JOIN asociados a ON a.id_asociado = ci.id_asociado
+      INNER JOIN mutuales m ON m.id_mutual = ci.id_mutual
+      ORDER BY a.apellido NULLS LAST, a.nombre NULLS LAST, ci.id_credito
+    `);
+
+    return rows;
   });
 }

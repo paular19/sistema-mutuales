@@ -8,12 +8,21 @@ export default async function InformesPage() {
             title: "Informe de Saldos Contables",
             description: "Descarga el informe contable de cargos y abonos al día de hoy.",
             action: "download",
+            requiresPeriod: false,
         },
         {
-            id: "3688",
+            id: "inf-3688",
             title: "Informe RG 3688 - AFIP",
             description: "Genera el archivo TXT mensual conforme a la Resolución General 3688.",
             action: "download",
+            requiresPeriod: true,
+        },
+        {
+            id: "central-deudores",
+            title: "Central de Deudores - INAES",
+            description: "Genera el CSV mensual con deudores y situación crediticia por mora.",
+            action: "download",
+            requiresPeriod: true,
         },
     ] as const;
 
