@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { VencimientoRegla } from "@prisma/client";
@@ -44,6 +44,9 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
   const [idProducto, setIdProducto] = useState("");
   const [monto, setMonto] = useState("");
   const [cantidadCuotas, setCantidadCuotas] = useState("");
+  const [tasaInteres, setTasaInteres] = useState("");
+  const [diaVencimiento, setDiaVencimiento] = useState("");
+  const [reglaVencimiento, setReglaVencimiento] = useState<VencimientoRegla>("AJUSTAR_ULTIMO_DIA");
   const [fechaCreacion, setFechaCreacion] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -52,29 +55,90 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
     return productos.find((p) => p.id_producto === Number(idProducto)) || null;
   }, [idProducto, productos]);
 
+  const esDocumentoSolaFirma = useMemo(() => {
+    if (!productoSeleccionado) return false;
+
+    const nombreNormalizado = productoSeleccionado.nombre
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    return nombreNormalizado.includes("documento") && nombreNormalizado.includes("sola firma");
+  }, [productoSeleccionado]);
+
+  useEffect(() => {
+    if (!productoSeleccionado) return;
+
+    setTasaInteres(String(productoSeleccionado.tasa_interes));
+    setDiaVencimiento(String(productoSeleccionado.dia_vencimiento));
+    setReglaVencimiento(productoSeleccionado.regla_vencimiento);
+  }, [productoSeleccionado]);
+
+  const parametrosCredito = useMemo(() => {
+    if (!productoSeleccionado) return null;
+
+    const tasa = esDocumentoSolaFirma
+      ? Number(tasaInteres)
+      : productoSeleccionado.tasa_interes;
+
+    const comisionComercial = productoSeleccionado.comision_comerc ?? 3;
+
+    const comisionDeGestion = esDocumentoSolaFirma
+      ? 0
+      : (productoSeleccionado.comision_gestion ?? 7.816712);
+
+    const diaVenc = esDocumentoSolaFirma
+      ? Number(diaVencimiento)
+      : productoSeleccionado.dia_vencimiento;
+
+    const regla = esDocumentoSolaFirma
+      ? reglaVencimiento
+      : productoSeleccionado.regla_vencimiento;
+
+    const valores = [tasa, comisionComercial, comisionDeGestion, diaVenc];
+    if (valores.some((v) => !Number.isFinite(v))) return null;
+    if (tasa <= 0 || comisionComercial < 0 || comisionDeGestion < 0) return null;
+    if (diaVenc < 1 || diaVenc > 31) return null;
+
+    return {
+      tasa,
+      comisionComercial,
+      comisionDeGestion,
+      diaVenc,
+      regla,
+    };
+  }, [
+    productoSeleccionado,
+    esDocumentoSolaFirma,
+    tasaInteres,
+    diaVencimiento,
+    reglaVencimiento,
+  ]);
+
   /* ----------------------------------------
      🔹 Cálculo dinámico de cuotas
   ---------------------------------------- */
   const calculo = useMemo(() => {
-    if (!productoSeleccionado || !monto || !cantidadCuotas) return null;
+    if (!parametrosCredito || !monto || !cantidadCuotas) return null;
 
     return calcularCuotasCredito({
       monto: Number(monto),
       cuotas: Number(cantidadCuotas),
-      tasaMensual: productoSeleccionado.tasa_interes,
+      tasaMensual: parametrosCredito.tasa,
       // comisionPct = comercializadora pct (por cuota)
-      comisionPct: productoSeleccionado.comision_comerc ?? 3,
+      comisionPct: parametrosCredito.comisionComercial,
       // gestionPct = porcentaje de gestión aplicado al monto inicial
-      gestionPct: productoSeleccionado.comision_gestion ?? 7.816712,
-      diaVencimiento: productoSeleccionado.dia_vencimiento,
-      reglaVencimiento: productoSeleccionado.regla_vencimiento,
+      gestionPct: parametrosCredito.comisionDeGestion,
+      diaVencimiento: parametrosCredito.diaVenc,
+      reglaVencimiento: parametrosCredito.regla,
       // Parsear fecha manualmente para evitar bug de timezone
       // (new Date("2026-01-22") es UTC, getDate() da día distinto en Argentina)
       fechaOtorgamiento: fechaCreacion
         ? (() => { const [y, m, d] = fechaCreacion.split('-').map(Number); return new Date(y, m - 1, d); })()
         : new Date(),
+      useFullFirstPeriodProration: esDocumentoSolaFirma,
     });
-  }, [monto, cantidadCuotas, productoSeleccionado, fechaCreacion]);
+  }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma]);
 
 
   /* ----------------------------------------
@@ -188,6 +252,52 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
         />
       </div>
 
+      {esDocumentoSolaFirma && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-gray-50">
+          <div>
+            <label className="font-semibold">Tasa de interés mensual (%)</label>
+            <input
+              type="number"
+              step="0.0001"
+              min="0"
+              name="tasa_interes"
+              value={tasaInteres}
+              onChange={(e) => setTasaInteres(e.target.value)}
+              className="mt-1 w-full border p-2 rounded"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="font-semibold">Día de vencimiento</label>
+            <input
+              type="number"
+              min="1"
+              max="31"
+              name="dia_vencimiento"
+              value={diaVencimiento}
+              onChange={(e) => setDiaVencimiento(e.target.value)}
+              className="mt-1 w-full border p-2 rounded"
+              required
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="font-semibold">Regla de vencimiento</label>
+            <select
+              name="regla_vencimiento"
+              value={reglaVencimiento}
+              onChange={(e) => setReglaVencimiento(e.target.value as VencimientoRegla)}
+              className="mt-1 w-full border p-2 rounded"
+              required
+            >
+              <option value="AJUSTAR_ULTIMO_DIA">Ajustar al último día del mes</option>
+              <option value="ESTRICTO">Estricto</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* ---------------- Resumen dinámico ---------------- */}
       {calculo && (
         <div className="p-4 border rounded-lg bg-gray-50 space-y-2">
@@ -196,11 +306,13 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
           <p><strong>Días hasta primer cierre:</strong> {calculo.diasEntre}</p>
 
           <p><strong>Monto inicial:</strong> ${Number(monto).toFixed(2)}</p>
-          <p><strong>Monto final{productoSeleccionado?.comision_gestion ? ` (+${productoSeleccionado.comision_gestion}%)` : ''}:</strong> ${calculo.montoFinal.toFixed(2)}</p>
+          <p><strong>Monto final{parametrosCredito?.comisionDeGestion ? ` (+${parametrosCredito.comisionDeGestion}%)` : ''}:</strong> ${calculo.montoFinal.toFixed(2)}</p>
 
           <p><strong>Interés prorrateado 1° cuota:</strong> ${calculo.interesProrrateado.toFixed(2)}</p>
 
-          <p><strong>Comisión de gestión total (aplicada al inicio):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
+          {!esDocumentoSolaFirma && (
+            <p><strong>Comisión de gestión total (aplicada al inicio):</strong> ${calculo.comisionTotal.toFixed(2)}</p>
+          )}
 
           <p className="text-blue-700 font-semibold">
             Primera cuota: ${calculo.primeraCuota.toFixed(2)}

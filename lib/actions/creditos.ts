@@ -27,6 +27,21 @@ function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla
   return ajustarAlMes(mesVencimiento, dia, regla);
 }
 
+function parseNumberField(value: FormDataEntryValue | null) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().replace(",", ".");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 
 /* ──────────────────────────────────────────────
  *  🔹 CREAR CRÉDITO (individual)
@@ -58,6 +73,20 @@ export async function createCredito(formData: FormData) {
 
       if (!producto) return { error: "Producto no encontrado." };
 
+      const nombreProductoNormalizado = normalizarTexto(producto.nombre);
+      const esDocumentoSolaFirma =
+        nombreProductoNormalizado.includes("documento") &&
+        nombreProductoNormalizado.includes("sola firma");
+      const tipo_operacion = esDocumentoSolaFirma ? "documento_sola_firma" : "credito";
+
+      const tasaInteresOverride = parseNumberField(formData.get("tasa_interes"));
+      const diaVencimientoOverride = parseNumberField(formData.get("dia_vencimiento"));
+      const rawReglaOverride = String(formData.get("regla_vencimiento") || "").trim();
+      const reglaVencimientoOverride: VencimientoRegla | null =
+        rawReglaOverride === "AJUSTAR_ULTIMO_DIA" || rawReglaOverride === "ESTRICTO"
+          ? rawReglaOverride
+          : null;
+
       /* 🔹 Cantidad de cuotas */
       const rawNumeroCuotas = formData.get("numero_cuotas");
       let numeroCuotas = rawNumeroCuotas ? Number(rawNumeroCuotas) : 1;
@@ -84,11 +113,36 @@ export async function createCredito(formData: FormData) {
        * ────────────────────────────────────────────── */
 
       // tasa mensual (como porcentaje) y su forma decimal
-      const tasaMensualPercent = producto.tasa_interes;
+      const tasaMensualPercent = esDocumentoSolaFirma
+        ? tasaInteresOverride
+        : producto.tasa_interes;
+
+      if (tasaMensualPercent === null || tasaMensualPercent <= 0) {
+        return { error: "La tasa de interés debe ser mayor a 0." };
+      }
+
       const tasaMensual = tasaMensualPercent / 100;
 
       // comisión de gestión (porcentaje) aplicada al monto inicial. Por defecto 7.816712% si no está definida
-      const gestionPct = producto.comision_gestion ?? 7.816712;
+      const gestionPct = esDocumentoSolaFirma
+        ? 0
+        : (producto.comision_gestion ?? 7.816712);
+
+      const diaVencimiento = esDocumentoSolaFirma
+        ? diaVencimientoOverride
+        : producto.dia_vencimiento;
+
+      if (diaVencimiento === null || diaVencimiento < 1 || diaVencimiento > 31) {
+        return { error: "El día de vencimiento debe estar entre 1 y 31." };
+      }
+
+      const reglaVencimiento = esDocumentoSolaFirma
+        ? reglaVencimientoOverride
+        : producto.regla_vencimiento;
+
+      if (!reglaVencimiento) {
+        return { error: "La regla de vencimiento es inválida." };
+      }
 
       // Monto final sobre el que se aplicarán los intereses = monto inicial + comisión de gestión
       const adjustedMonto = monto * (1 + gestionPct / 100);
@@ -98,8 +152,8 @@ export async function createCredito(formData: FormData) {
       // Primera fecha de vencimiento según regla de producto
       const primera_venc = primeraFechaVencimiento(
         hoy,
-        producto.dia_vencimiento,
-        producto.regla_vencimiento
+        diaVencimiento,
+        reglaVencimiento
       );
 
       // Días entre fecha de otorgamiento (hoy) y primer vencimiento (ACT/360)
@@ -115,14 +169,16 @@ export async function createCredito(formData: FormData) {
 
       // Cálculo de prorrateo (solo días extra más allá de 30):
       // tasaMensual = tasaAnual * 30 / 360
-      // % = (tasaMensual / 30) × diasExtra
+      // % = (tasaMensual / 30) × diasProrrateo
       // agregado = adjustedMonto × (% / 100)
-      const diasExtra = Math.max(0, diasEntre - 30);
+      const diasProrrateo = esDocumentoSolaFirma
+        ? Math.max(0, diasEntre)
+        : Math.max(0, diasEntre - 30);
       let interesProrrateado = 0;
-      if (diasExtra > 0) {
+      if (diasProrrateo > 0) {
         const tasaAnual = tasaMensualPercent * 12;
         const tasaMensualNueva = (tasaAnual * 30) / 360;
-        const porcentaje = (tasaMensualNueva / 30) * diasExtra;
+        const porcentaje = (tasaMensualNueva / 30) * diasProrrateo;
         const porcentajeRedondeado = Math.round(porcentaje * 10000) / 10000;
         interesProrrateado = Math.round(adjustedMonto * (porcentajeRedondeado / 100) * 100) / 100;
       }
@@ -153,8 +209,8 @@ export async function createCredito(formData: FormData) {
       for (let idx = 0; idx < numeroCuotas; idx++) {
         const fecha_vencimiento = ajustarAlMes(
           addMonths(primera_venc, idx),
-          producto.dia_vencimiento,
-          producto.regla_vencimiento
+          diaVencimiento,
+          reglaVencimiento
         );
 
         const esPrimera = idx === 0;
@@ -204,11 +260,12 @@ export async function createCredito(formData: FormData) {
           id_producto,
           monto, // capital original
           fecha_creacion: hoy, // fecha personalizada o hoy
+          tipo_operacion,
 
-          tasa_interes: producto.tasa_interes,   // mensual, como cargás en producto
+          tasa_interes: tasaMensualPercent,
           numero_cuotas: numeroCuotas,
-          dia_vencimiento: producto.dia_vencimiento,
-          regla_vencimiento: producto.regla_vencimiento,
+          dia_vencimiento: Math.trunc(diaVencimiento),
+          regla_vencimiento: reglaVencimiento,
           primera_venc,
 
           saldo_capital_inicial: saldoInicial,

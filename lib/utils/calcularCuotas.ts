@@ -10,6 +10,7 @@ export interface CalcularCuotasParams {
   reglaVencimiento: string;
   comercializadoraPct?: number;
   fechaOtorgamiento?: Date; // fecha de creación del crédito
+  useFullFirstPeriodProration?: boolean;
 }
 
 export function calcularCuotasCredito({
@@ -21,7 +22,8 @@ export function calcularCuotasCredito({
   diaVencimiento,
   reglaVencimiento,
   comercializadoraPct = 3,
-  fechaOtorgamiento
+  fechaOtorgamiento,
+  useFullFirstPeriodProration = false,
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
@@ -69,17 +71,20 @@ export function calcularCuotasCredito({
     Math.round((primerVencSinHora.getTime() - hoySinHora.getTime()) / msDia)
   );
 
-  // Cálculo de prorrateo (solo días extra más allá de 30):
-  // tasaMensual = tasaAnual * 30 / 360
-  // % = (tasaMensual / 30) × diasExtra
+  // Cálculo de prorrateo:
+  // - Histórico: solo días extra más allá de 30
+  // - Documento a sola firma: período completo del primer tramo
+  // % = (tasaMensual / 30) × diasProrrateo
   // agregado = adjustedMonto × (% / 100)
-  const diasExtra = Math.max(0, diasEntre - 30);
+  const diasProrrateo = useFullFirstPeriodProration
+    ? Math.max(0, diasEntre)
+    : Math.max(0, diasEntre - 30);
   let interesProrrateado = 0;
-  if (diasExtra > 0) {
+  if (diasProrrateo > 0) {
     // Usar más precisión en los cálculos
     const tasaAnual = tasaMensualPercent * 12;
     const tasaMensualNueva = (tasaAnual * 30) / 360;
-    const porcentaje = (tasaMensualNueva / 30) * diasExtra;
+    const porcentaje = (tasaMensualNueva / 30) * diasProrrateo;
     // Redondear el porcentaje a 4 decimales antes de aplicar
     const porcentajeRedondeado = Math.round(porcentaje * 10000) / 10000;
     interesProrrateado = Math.round(adjustedMonto * (porcentajeRedondeado / 100) * 100) / 100;
