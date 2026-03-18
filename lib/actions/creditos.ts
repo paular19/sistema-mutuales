@@ -35,6 +35,26 @@ function parseNumberField(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseLocalDateField(value: FormDataEntryValue | null) {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const [y, m, d] = raw.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const parsed = new Date(y, m - 1, d);
+  if (
+    parsed.getFullYear() !== y ||
+    parsed.getMonth() !== m - 1 ||
+    parsed.getDate() !== d
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function normalizarTexto(texto: string) {
   return texto
     .normalize("NFD")
@@ -80,12 +100,7 @@ export async function createCredito(formData: FormData) {
       const tipo_operacion = esDocumentoSolaFirma ? "documento_sola_firma" : "credito";
 
       const tasaInteresOverride = parseNumberField(formData.get("tasa_interes"));
-      const diaVencimientoOverride = parseNumberField(formData.get("dia_vencimiento"));
-      const rawReglaOverride = String(formData.get("regla_vencimiento") || "").trim();
-      const reglaVencimientoOverride: VencimientoRegla | null =
-        rawReglaOverride === "AJUSTAR_ULTIMO_DIA" || rawReglaOverride === "ESTRICTO"
-          ? rawReglaOverride
-          : null;
+      const primeraVencOverride = parseLocalDateField(formData.get("primera_venc"));
 
       /* 🔹 Cantidad de cuotas */
       const rawNumeroCuotas = formData.get("numero_cuotas");
@@ -128,8 +143,12 @@ export async function createCredito(formData: FormData) {
         ? 0
         : (producto.comision_gestion ?? 7.816712);
 
+      if (esDocumentoSolaFirma && !primeraVencOverride) {
+        return { error: "Debe seleccionar la primera fecha de vencimiento." };
+      }
+
       const diaVencimiento = esDocumentoSolaFirma
-        ? diaVencimientoOverride
+        ? (primeraVencOverride?.getDate() ?? null)
         : producto.dia_vencimiento;
 
       if (diaVencimiento === null || diaVencimiento < 1 || diaVencimiento > 31) {
@@ -137,12 +156,8 @@ export async function createCredito(formData: FormData) {
       }
 
       const reglaVencimiento = esDocumentoSolaFirma
-        ? reglaVencimientoOverride
+        ? VencimientoRegla.ESTRICTO
         : producto.regla_vencimiento;
-
-      if (!reglaVencimiento) {
-        return { error: "La regla de vencimiento es inválida." };
-      }
 
       // Monto final sobre el que se aplicarán los intereses = monto inicial + comisión de gestión
       const adjustedMonto = monto * (1 + gestionPct / 100);
@@ -150,11 +165,17 @@ export async function createCredito(formData: FormData) {
       const capitalPorCuota = adjustedMonto / numeroCuotas;
 
       // Primera fecha de vencimiento según regla de producto
-      const primera_venc = primeraFechaVencimiento(
-        hoy,
-        diaVencimiento,
-        reglaVencimiento
-      );
+      const primera_venc = esDocumentoSolaFirma
+        ? new Date(
+          (primeraVencOverride as Date).getFullYear(),
+          (primeraVencOverride as Date).getMonth(),
+          (primeraVencOverride as Date).getDate()
+        )
+        : primeraFechaVencimiento(
+          hoy,
+          diaVencimiento,
+          reglaVencimiento
+        );
 
       // Días entre fecha de otorgamiento (hoy) y primer vencimiento (ACT/360)
       const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
@@ -206,12 +227,21 @@ export async function createCredito(formData: FormData) {
       }[] = [];
 
       let outstanding = adjustedMonto;
+      let ultimoVencimiento = new Date(primera_venc);
       for (let idx = 0; idx < numeroCuotas; idx++) {
-        const fecha_vencimiento = ajustarAlMes(
-          addMonths(primera_venc, idx),
-          diaVencimiento,
-          reglaVencimiento
-        );
+        const fecha_vencimiento = idx === 0
+          ? new Date(primera_venc)
+          : esDocumentoSolaFirma
+            ? ajustarAlMes(
+              addMonths(ultimoVencimiento, 1),
+              diaVencimiento,
+              reglaVencimiento
+            )
+            : ajustarAlMes(
+              addMonths(primera_venc, idx),
+              diaVencimiento,
+              reglaVencimiento
+            );
 
         const esPrimera = idx === 0;
 
@@ -240,6 +270,8 @@ export async function createCredito(formData: FormData) {
           monto_interes: Math.round(monto_interes * 100) / 100,
           monto_total,
         });
+
+        ultimoVencimiento = fecha_vencimiento;
 
         outstanding = Math.round((outstanding - monto_capital) * 1000000) / 1000000; // mantener precisión razonable
       }

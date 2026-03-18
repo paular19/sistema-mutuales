@@ -10,6 +10,7 @@ export interface CalcularCuotasParams {
   reglaVencimiento: string;
   comercializadoraPct?: number;
   fechaOtorgamiento?: Date; // fecha de creación del crédito
+  primeraVencSeleccionada?: Date;
   useFullFirstPeriodProration?: boolean;
 }
 
@@ -23,6 +24,7 @@ export function calcularCuotasCredito({
   reglaVencimiento,
   comercializadoraPct = 3,
   fechaOtorgamiento,
+  primeraVencSeleccionada,
   useFullFirstPeriodProration = false,
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
@@ -39,21 +41,31 @@ export function calcularCuotasCredito({
   // Monto final sobre el que se aplica interés = monto inicial + comision de gestión
   const adjustedMonto = monto * (1 + gestionAplicada);
 
-  // Primera fecha de vencimiento: depende del día de emisión
-  // Si emite después del día 15 → vencimiento 2 meses después
-  // Si emite día 15 o antes → vencimiento 1 mes después
-  const diaEmision = hoy.getDate();
-  const mesesASumar = diaEmision > 15 ? 2 : 1;
-  let primerVenc = new Date(
-    hoy.getFullYear(),
-    hoy.getMonth() + mesesASumar,
-    diaVencimiento
-  );
+  let primerVenc: Date;
+  if (primeraVencSeleccionada) {
+    // Respetar exactamente la primera fecha elegida para documento a sola firma.
+    primerVenc = new Date(
+      primeraVencSeleccionada.getFullYear(),
+      primeraVencSeleccionada.getMonth(),
+      primeraVencSeleccionada.getDate()
+    );
+  } else {
+    // Primera fecha de vencimiento: depende del día de emisión
+    // Si emite después del día 15 → vencimiento 2 meses después
+    // Si emite día 15 o antes → vencimiento 1 mes después
+    const diaEmision = hoy.getDate();
+    const mesesASumar = diaEmision > 15 ? 2 : 1;
+    primerVenc = new Date(
+      hoy.getFullYear(),
+      hoy.getMonth() + mesesASumar,
+      diaVencimiento
+    );
 
-  if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
-    const ultimo = new Date(primerVenc.getFullYear(), primerVenc.getMonth() + 1, 0).getDate();
-    if (diaVencimiento > ultimo) {
-      primerVenc.setDate(ultimo);
+    if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
+      const ultimo = new Date(primerVenc.getFullYear(), primerVenc.getMonth() + 1, 0).getDate();
+      if (diaVencimiento > ultimo) {
+        primerVenc.setDate(ultimo);
+      }
     }
   }
 

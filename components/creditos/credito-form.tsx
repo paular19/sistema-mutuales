@@ -45,8 +45,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
   const [monto, setMonto] = useState("");
   const [cantidadCuotas, setCantidadCuotas] = useState("");
   const [tasaInteres, setTasaInteres] = useState("");
-  const [diaVencimiento, setDiaVencimiento] = useState("");
-  const [reglaVencimiento, setReglaVencimiento] = useState<VencimientoRegla>("AJUSTAR_ULTIMO_DIA");
+  const [primeraVencimiento, setPrimeraVencimiento] = useState("");
   const [fechaCreacion, setFechaCreacion] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -70,8 +69,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
     if (!productoSeleccionado) return;
 
     setTasaInteres(String(productoSeleccionado.tasa_interes));
-    setDiaVencimiento(String(productoSeleccionado.dia_vencimiento));
-    setReglaVencimiento(productoSeleccionado.regla_vencimiento);
+    setPrimeraVencimiento("");
   }, [productoSeleccionado]);
 
   const parametrosCredito = useMemo(() => {
@@ -87,12 +85,28 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       ? 0
       : (productoSeleccionado.comision_gestion ?? 7.816712);
 
+    let primeraVencSeleccionada: Date | null = null;
+    if (esDocumentoSolaFirma) {
+      if (!primeraVencimiento) return null;
+      const [y, m, d] = primeraVencimiento.split("-").map(Number);
+      if (!y || !m || !d) return null;
+      const parsed = new Date(y, m - 1, d);
+      if (
+        parsed.getFullYear() !== y ||
+        parsed.getMonth() !== m - 1 ||
+        parsed.getDate() !== d
+      ) {
+        return null;
+      }
+      primeraVencSeleccionada = parsed;
+    }
+
     const diaVenc = esDocumentoSolaFirma
-      ? Number(diaVencimiento)
+      ? (primeraVencSeleccionada?.getDate() ?? Number.NaN)
       : productoSeleccionado.dia_vencimiento;
 
     const regla = esDocumentoSolaFirma
-      ? reglaVencimiento
+      ? VencimientoRegla.ESTRICTO
       : productoSeleccionado.regla_vencimiento;
 
     const valores = [tasa, comisionComercial, comisionDeGestion, diaVenc];
@@ -106,13 +120,13 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       comisionDeGestion,
       diaVenc,
       regla,
+      primeraVencSeleccionada,
     };
   }, [
     productoSeleccionado,
     esDocumentoSolaFirma,
     tasaInteres,
-    diaVencimiento,
-    reglaVencimiento,
+    primeraVencimiento,
   ]);
 
   /* ----------------------------------------
@@ -136,6 +150,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       fechaOtorgamiento: fechaCreacion
         ? (() => { const [y, m, d] = fechaCreacion.split('-').map(Number); return new Date(y, m - 1, d); })()
         : new Date(),
+      primeraVencSeleccionada: parametrosCredito.primeraVencSeleccionada ?? undefined,
       useFullFirstPeriodProration: esDocumentoSolaFirma,
     });
   }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma]);
@@ -269,31 +284,19 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
           </div>
 
           <div>
-            <label className="font-semibold">Día de vencimiento</label>
+            <label className="font-semibold">Primera fecha de vencimiento</label>
             <input
-              type="number"
-              min="1"
-              max="31"
-              name="dia_vencimiento"
-              value={diaVencimiento}
-              onChange={(e) => setDiaVencimiento(e.target.value)}
+              type="date"
+              name="primera_venc"
+              value={primeraVencimiento}
+              onChange={(e) => setPrimeraVencimiento(e.target.value)}
               className="mt-1 w-full border p-2 rounded"
               required
             />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="font-semibold">Regla de vencimiento</label>
-            <select
-              name="regla_vencimiento"
-              value={reglaVencimiento}
-              onChange={(e) => setReglaVencimiento(e.target.value as VencimientoRegla)}
-              className="mt-1 w-full border p-2 rounded"
-              required
-            >
-              <option value="AJUSTAR_ULTIMO_DIA">Ajustar al último día del mes</option>
-              <option value="ESTRICTO">Estricto</option>
-            </select>
+            <p className="mt-1 text-xs text-gray-600">
+              La primera cuota vence exactamente en esta fecha. Las siguientes se calculan mes a mes;
+              si el día no existe en un mes, se corre al día siguiente válido y continúa desde ahí.
+            </p>
           </div>
         </div>
       )}
