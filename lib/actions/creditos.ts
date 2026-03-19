@@ -62,6 +62,17 @@ function normalizarTexto(texto: string) {
     .toLowerCase();
 }
 
+function esUnMesExacto(fechaBase: Date, fechaComparar: Date) {
+  const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate());
+  const comparar = new Date(fechaComparar.getFullYear(), fechaComparar.getMonth(), fechaComparar.getDate());
+  const mesSiguiente = new Date(
+    base.getFullYear(),
+    base.getMonth() + 1,
+    base.getDate()
+  );
+  return comparar.getTime() === mesSiguiente.getTime();
+}
+
 
 /* ──────────────────────────────────────────────
  *  🔹 CREAR CRÉDITO (individual)
@@ -192,8 +203,11 @@ export async function createCredito(formData: FormData) {
       // tasaMensual = tasaAnual * 30 / 360
       // % = (tasaMensual / 30) × diasProrrateo
       // agregado = adjustedMonto × (% / 100)
+      const sinProrrateoPorMesExacto =
+        esDocumentoSolaFirma && esUnMesExacto(hoySinHora, primeraSinHora);
+
       const diasProrrateo = esDocumentoSolaFirma
-        ? Math.max(0, diasEntre)
+        ? (sinProrrateoPorMesExacto ? 0 : Math.max(0, diasEntre))
         : Math.max(0, diasEntre - 30);
       let interesProrrateado = 0;
       if (diasProrrateo > 0) {

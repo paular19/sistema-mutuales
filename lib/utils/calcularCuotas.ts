@@ -29,6 +29,17 @@ export function calcularCuotasCredito({
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
+  function esUnMesExacto(fechaBase: Date, fechaComparar: Date) {
+    const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate());
+    const comparar = new Date(fechaComparar.getFullYear(), fechaComparar.getMonth(), fechaComparar.getDate());
+    const mesSiguiente = new Date(
+      base.getFullYear(),
+      base.getMonth() + 1,
+      base.getDate()
+    );
+    return comparar.getTime() === mesSiguiente.getTime();
+  }
+
   const hoy = fechaOtorgamiento || new Date();
 
   const tasaMensualPercent = tasaMensual; // e.g. 9.58
@@ -86,10 +97,15 @@ export function calcularCuotasCredito({
   // Cálculo de prorrateo:
   // - Histórico: solo días extra más allá de 30
   // - Documento a sola firma: período completo del primer tramo
+  //   excepto cuando la primera cuota cae exactamente al mes siguiente,
+  //   donde no se aplica prorrateo adicional.
   // % = (tasaMensual / 30) × diasProrrateo
   // agregado = adjustedMonto × (% / 100)
+  const sinProrrateoPorMesExacto =
+    useFullFirstPeriodProration && esUnMesExacto(hoySinHora, primerVencSinHora);
+
   const diasProrrateo = useFullFirstPeriodProration
-    ? Math.max(0, diasEntre)
+    ? (sinProrrateoPorMesExacto ? 0 : Math.max(0, diasEntre))
     : Math.max(0, diasEntre - 30);
   let interesProrrateado = 0;
   if (diasProrrateo > 0) {
