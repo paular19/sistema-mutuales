@@ -38,8 +38,7 @@ export function calcularCuotasCredito({
       base.getDate()
     );
     const msDia = 1000 * 60 * 60 * 24;
-    const diffDias = Math.round((comparar.getTime() - mesSiguiente.getTime()) / msDia);
-    return Math.max(0, diffDias);
+    return Math.round((comparar.getTime() - mesSiguiente.getTime()) / msDia);
   }
 
   const hoy = fechaOtorgamiento || new Date();
@@ -98,8 +97,8 @@ export function calcularCuotasCredito({
 
   // Cálculo de prorrateo:
   // - Histórico: solo días extra más allá de 30
-  // - Documento a sola firma: solo días extra por encima del mes base
-  //   (ej: 18/03 -> 19/04 = 1 día de prorrateo).
+  // - Documento a sola firma: días relativos al mes base
+  //   (ej: 18/03 -> 19/04 = +1, 18/03 -> 01/04 = -17/-18 según calendario).
   // % = (tasaMensual / 30) × diasProrrateo
   // agregado = adjustedMonto × (% / 100)
   const diasExtraDocumento = calcularDiasExtraDocumento(hoySinHora, primerVencSinHora);
@@ -108,7 +107,7 @@ export function calcularCuotasCredito({
     ? diasExtraDocumento
     : Math.max(0, diasEntre - 30);
   let interesProrrateado = 0;
-  if (diasProrrateo > 0) {
+  if (diasProrrateo !== 0) {
     // Usar más precisión en los cálculos
     const tasaAnual = tasaMensualPercent * 12;
     const tasaMensualNueva = (tasaAnual * 30) / 360;

@@ -71,8 +71,7 @@ function calcularDiasExtraDocumento(fechaBase: Date, fechaComparar: Date) {
     base.getDate()
   );
   const msDia = 1000 * 60 * 60 * 24;
-  const diffDias = Math.round((comparar.getTime() - mesSiguiente.getTime()) / msDia);
-  return Math.max(0, diffDias);
+  return Math.round((comparar.getTime() - mesSiguiente.getTime()) / msDia);
 }
 
 
@@ -201,7 +200,9 @@ export async function createCredito(formData: FormData) {
       const diffMs = primeraSinHora.getTime() - hoySinHora.getTime();
       const diasEntre = Math.max(0, Math.round(diffMs / msPorDia));
 
-      // Cálculo de prorrateo (solo días extra más allá de 30):
+      // Cálculo de prorrateo:
+      // - Documento a sola firma usa días relativos al mes base (puede ser negativo)
+      // - Resto mantiene días extra sobre 30
       // tasaMensual = tasaAnual * 30 / 360
       // % = (tasaMensual / 30) × diasProrrateo
       // agregado = adjustedMonto × (% / 100)
@@ -211,7 +212,7 @@ export async function createCredito(formData: FormData) {
         ? diasExtraDocumento
         : Math.max(0, diasEntre - 30);
       let interesProrrateado = 0;
-      if (diasProrrateo > 0) {
+      if (diasProrrateo !== 0) {
         const tasaAnual = tasaMensualPercent * 12;
         const tasaMensualNueva = (tasaAnual * 30) / 360;
         const porcentaje = (tasaMensualNueva / 30) * diasProrrateo;
