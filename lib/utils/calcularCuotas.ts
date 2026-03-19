@@ -29,7 +29,7 @@ export function calcularCuotasCredito({
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
-  function esUnMesExacto(fechaBase: Date, fechaComparar: Date) {
+  function calcularDiasExtraDocumento(fechaBase: Date, fechaComparar: Date) {
     const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate());
     const comparar = new Date(fechaComparar.getFullYear(), fechaComparar.getMonth(), fechaComparar.getDate());
     const mesSiguiente = new Date(
@@ -37,7 +37,9 @@ export function calcularCuotasCredito({
       base.getMonth() + 1,
       base.getDate()
     );
-    return comparar.getTime() === mesSiguiente.getTime();
+    const msDia = 1000 * 60 * 60 * 24;
+    const diffDias = Math.round((comparar.getTime() - mesSiguiente.getTime()) / msDia);
+    return Math.max(0, diffDias);
   }
 
   const hoy = fechaOtorgamiento || new Date();
@@ -96,16 +98,14 @@ export function calcularCuotasCredito({
 
   // Cálculo de prorrateo:
   // - Histórico: solo días extra más allá de 30
-  // - Documento a sola firma: período completo del primer tramo
-  //   excepto cuando la primera cuota cae exactamente al mes siguiente,
-  //   donde no se aplica prorrateo adicional.
+  // - Documento a sola firma: solo días extra por encima del mes base
+  //   (ej: 18/03 -> 19/04 = 1 día de prorrateo).
   // % = (tasaMensual / 30) × diasProrrateo
   // agregado = adjustedMonto × (% / 100)
-  const sinProrrateoPorMesExacto =
-    useFullFirstPeriodProration && esUnMesExacto(hoySinHora, primerVencSinHora);
+  const diasExtraDocumento = calcularDiasExtraDocumento(hoySinHora, primerVencSinHora);
 
   const diasProrrateo = useFullFirstPeriodProration
-    ? (sinProrrateoPorMesExacto ? 0 : Math.max(0, diasEntre))
+    ? diasExtraDocumento
     : Math.max(0, diasEntre - 30);
   let interesProrrateado = 0;
   if (diasProrrateo > 0) {
