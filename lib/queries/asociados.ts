@@ -58,28 +58,27 @@ export async function getAsociados(filters: AsociadosFilters = {}): Promise<Asoc
       }));
     }
 
-    // =========================================================
-    // ⚡ QUERY ÚNICA (SIN COUNT — MÁS RÁPIDO EN NEON)
-    // =========================================================
-    const items = await tx.asociado.findMany({
-      where,
-      skip,
-      take: limit + 1, // pide uno extra para saber si hay siguiente página
-      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
-      include: { tipoAsociado: true },
-    });
+    const [total, items] = await Promise.all([
+      tx.asociado.count({ where }),
+      tx.asociado.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+        include: { tipoAsociado: true },
+      }),
+    ]);
 
-    const hasMore = items.length > limit;
-    const asociados = hasMore ? items.slice(0, limit) : items;
+    const pages = Math.max(1, Math.ceil(total / limit));
 
     return {
-      asociados,
+      asociados: items,
       pagination: {
         page,
         limit,
-        hasMore,
-        pages: page + (hasMore ? 1 : 0), // evita undefined
-        total: -1, // no usamos count, porque es más lento
+        hasMore: page < pages,
+        pages,
+        total,
       },
     };
   });
