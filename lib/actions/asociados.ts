@@ -417,6 +417,58 @@ export async function actualizarMasivoAsociadosAction(formData: FormData) {
 }
 
 /* =============================================================
+   📥 EXPORTAR ASOCIADOS A EXCEL
+============================================================= */
+export async function exportAsociadosAction(): Promise<{ data?: string; error?: string }> {
+  try {
+    const { userId, mutualId } = await getInfoOrThrow();
+
+    const asociados = await withRLS(mutualId, userId, (tx) =>
+      tx.asociado.findMany({
+        where: { id_mutual: mutualId },
+        orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+        include: { tipoAsociado: true },
+      })
+    );
+
+    const rows = asociados.map((a) => ({
+      "Nombre/Razón Social":
+        a.tipo_persona === "juridica"
+          ? a.razon_social ?? ""
+          : `${a.apellido ?? ""} ${a.nombre ?? ""}`.trim(),
+      CUIT: a.cuit ?? "",
+      Email: a.email ?? "",
+      Teléfono: a.telefono ?? "",
+      "Fecha Nacimiento": a.fecha_nac ? a.fecha_nac.toISOString().split("T")[0] : "",
+      Profesión: a.profesion ?? "",
+      "Sueldo Mensual": a.sueldo_mes ?? "",
+      "Sueldo Anual": a.sueldo_ano ?? "",
+      Calle: a.calle ?? "",
+      "Número": a.numero_calle ?? "",
+      Piso: a.piso ?? "",
+      Departamento: a.departamento ?? "",
+      Localidad: a.localidad ?? "",
+      Provincia: a.provincia ?? "",
+      "Código Postal": a.codigo_postal ?? "",
+      Extranjero: a.es_extranjero ? "Sí" : "No",
+      "Tipo Persona": a.tipo_persona === "juridica" ? "Jurídica" : "Física",
+      "Tipo Asociado": a.tipoAsociado?.nombre ?? "",
+      Notificaciones: a.recibe_notificaciones ? "Sí" : "No",
+      "Dec. Jurada": a.dec_jurada ? "Sí" : "No",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Asociados");
+
+    const buf = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+    return { data: buf };
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+}
+
+/* =============================================================
    🟢 CREAR ASOCIADO (CON VALIDACIONES CORRECTAS)
 ============================================================= */
 export async function createAsociado(prevState: any, formData: FormData) {

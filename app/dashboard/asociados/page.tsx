@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AsociadosTable } from "@/components/asociados/asociados-table";
 import { AsociadosFilters } from "@/components/asociados/asociados-filters";
+import { ExportAsociadosButton } from "@/components/asociados/export-asociados-button";
 
 interface SearchParams {
   search?: string;
@@ -34,6 +35,7 @@ export default async function AsociadosPage(props: {
         </div>
 
         <div className="flex gap-2">
+          <ExportAsociadosButton />
           <Button asChild variant="outline">
             <Link href="/dashboard/asociados/actualizar-masivo">
               Actualización masiva
