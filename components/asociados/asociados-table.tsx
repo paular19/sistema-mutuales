@@ -361,13 +361,11 @@ export async function AsociadosTable({ searchParams }: AsociadosTableProps) {
         ))}
       </div>
 
-      {pagination.pages > 1 && (
-        <Pagination
-          currentPage={pagination.page}
-          totalPages={pagination.pages}
-          baseUrl="/dashboard/asociados"
-        />
-      )}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.pages}
+        baseUrl="/dashboard/asociados"
+      />
     </div>
   );
 }
