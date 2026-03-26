@@ -12,6 +12,8 @@ interface CobrarActionResult {
     error?: string;
     total?: number;
     count?: number;
+    pagoId?: number;
+    cuotaIds?: number[];
 }
 
 interface CancelacionesCobroFormProps {
@@ -41,6 +43,31 @@ export function CancelacionesCobroForm({ filas, action }: CancelacionesCobroForm
                 toast.success(
                     `Cobranza realizada: ${res.count ?? 0} cuota${(res.count ?? 0) === 1 ? "" : "s"} por ${formatCurrency(res.total ?? 0)}.`
                 );
+
+                if (res.pagoId && Array.isArray(res.cuotaIds) && res.cuotaIds.length > 0) {
+                    const pdfFormData = new FormData();
+                    pdfFormData.append("pagoId", String(res.pagoId));
+                    pdfFormData.append("cuotaIds", JSON.stringify(res.cuotaIds));
+
+                    const pdfResponse = await fetch("/endpoints/cancelaciones/descargar", {
+                        method: "POST",
+                        body: pdfFormData,
+                    });
+
+                    if (pdfResponse.ok) {
+                        const blob = await pdfResponse.blob();
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `cobranza_cancelacion_${res.pagoId}.pdf`;
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        URL.revokeObjectURL(url);
+                    } else {
+                        toast.error("La cobranza se realizó, pero no se pudo descargar el PDF.");
+                    }
+                }
 
                 router.refresh();
             } catch (error) {

@@ -73,7 +73,13 @@ export async function cobrarCuotasDesdeCancelacion(
       revalidatePath("/dashboard/cancelaciones");
       revalidatePath("/dashboard/liquidaciones");
 
-      return { success: true, total, count: cuotas.length };
+      return {
+        success: true,
+        total,
+        count: cuotas.length,
+        pagoId: pago.id_pago,
+        cuotaIds: cuotas.map((c) => c.id_cuota),
+      };
     },
     { timeoutMs: 60000 }
   );
