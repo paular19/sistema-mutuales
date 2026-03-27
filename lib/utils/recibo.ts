@@ -102,7 +102,7 @@ export async function generarReciboPDF({ pago, cuotas }: ReciboInput): Promise<U
     "-";
 
   let pageNumber = 0;
-  let page: PDFPage;
+  let page: PDFPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = CONTENT_TOP;
 
   const drawFooter = (currentPage: PDFPage) => {
@@ -327,7 +327,10 @@ export async function generarReciboPDF({ pago, cuotas }: ReciboInput): Promise<U
     y -= rowHeight;
   };
 
-  addPage();
+  pageNumber += 1;
+  drawHeader(page);
+  drawFooter(page);
+  y = CONTENT_TOP;
 
   drawSectionTitle("Datos de la mutual");
   drawField("Mutual:", safeText(mutual?.nombre), 110, 420);
