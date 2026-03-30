@@ -13,11 +13,13 @@ export async function GET(req: Request) {
 
         const productoIdRaw = Number(searchParams.get("productoId"));
         const productoId = Number.isFinite(productoIdRaw) && productoIdRaw > 0 ? productoIdRaw : undefined;
+        const fechaDesde = searchParams.get("fechaDesde")?.trim() || undefined;
         const fechaCorte = searchParams.get("fechaCorte")?.trim() || undefined;
 
         const { buffer, filename, contentType } = await exportLiquidacionesAction({
             format,
             productoId,
+            fechaDesde,
             fechaCorte,
         });
 
