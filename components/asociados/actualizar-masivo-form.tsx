@@ -195,6 +195,7 @@ export function ActualizarMasivoForm() {
           onClick={handleReadHeaders}
           disabled={!file || isPending}
         >
+          {isPending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
           {isPending ? "Leyendo archivo..." : "Leer columnas del Excel"}
         </Button>
       </div>
@@ -334,6 +335,7 @@ export function ActualizarMasivoForm() {
             onClick={handleSubmit}
             disabled={!keyColumn || mappedCount === 0 || isPending}
           >
+            {isPending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
             {isPending
               ? "Procesando..."
               : `Actualizar asociados (${mappedCount} campo${mappedCount !== 1 ? "s" : ""})`}

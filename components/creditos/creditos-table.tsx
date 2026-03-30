@@ -25,6 +25,7 @@ import {
 import { formatCurrency } from "@/lib/utils/format";
 import { CreditosFilters } from "./creditos-filters";
 import { Pagination } from "@/components/ui/pagination";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { FileText, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -172,8 +173,12 @@ export function CreditosTable({
                       className="flex items-center gap-1"
                       title="Descargar todos los documentos (ZIP)"
                     >
-                      <FileText className="w-4 h-4" />
-                      {loadingPdf === c.id_credito ? "..." : "PDFs"}
+                      {loadingPdf === c.id_credito ? (
+                        <LoadingSpinner className="w-4 h-4" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                      PDFs
                     </Button>
 
                     <AlertDialog
@@ -199,7 +204,7 @@ export function CreditosTable({
                           }
                           aria-label="Anular crédito"
                         >
-                          {loadingAnular === c.id_credito ? "..." : <Trash2 className="w-4 h-4" />}
+                          {loadingAnular === c.id_credito ? <LoadingSpinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                         </Button>
                       </AlertDialogTrigger>
 
@@ -230,6 +235,7 @@ export function CreditosTable({
                             disabled={isPending}
                             className="bg-destructive text-white hover:bg-destructive/90"
                           >
+                            {loadingAnular === c.id_credito ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
                             {loadingAnular === c.id_credito ? "Procesando..." : "Anular"}
                           </AlertDialogAction>
                         </AlertDialogFooter>

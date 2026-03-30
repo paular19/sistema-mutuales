@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { VencimientoRegla } from "@prisma/client";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { calcularCuotasCredito } from "@/lib/utils/calcularCuotas";
 
 /* ----------------------------------------
@@ -370,9 +371,10 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       <button
         type="submit"
         disabled={isPending}
-        className={`px-6 py-3 rounded text-white font-semibold 
+        className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded text-white font-semibold 
           ${isPending ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
       >
+        {isPending ? <LoadingSpinner className="h-4 w-4" /> : null}
         {isPending ? "Creando crédito..." : "Crear Crédito"}
       </button>
     </form>

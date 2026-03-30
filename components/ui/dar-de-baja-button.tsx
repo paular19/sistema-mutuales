@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { bajaProducto } from "@/lib/actions/productos";
 import {
   AlertDialog,
@@ -47,6 +48,7 @@ export function DarDeBajaButton({ id }: DarDeBajaButtonProps) {
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant="destructive" size="sm" disabled={pending}>
+          {pending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
           {pending ? "Procesando..." : "Dar de baja"}
         </Button>
       </AlertDialogTrigger>
@@ -67,6 +69,7 @@ export function DarDeBajaButton({ id }: DarDeBajaButtonProps) {
             disabled={pending}
             className="bg-destructive text-white hover:bg-destructive/90"
           >
+            {pending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
             {pending ? "Procesando..." : "Confirmar baja"}
           </AlertDialogAction>
         </AlertDialogFooter>

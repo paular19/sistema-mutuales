@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Download } from "lucide-react";
 import { exportAsociadosAction } from "@/lib/actions/asociados";
 
@@ -33,7 +34,7 @@ export function ExportAsociadosButton() {
 
   return (
     <Button variant="outline" onClick={handleExport} disabled={loading}>
-      <Download className="mr-2 h-4 w-4" />
+      {loading ? <LoadingSpinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
       {loading ? "Exportando..." : "Exportar Excel"}
     </Button>
   );

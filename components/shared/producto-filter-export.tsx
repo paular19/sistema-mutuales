@@ -1,6 +1,9 @@
 "use client";
 
+import { useTransition } from "react";
+
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
     Select,
     SelectContent,
@@ -31,6 +34,7 @@ export function ProductoFilterExport({
 }: ProductoFilterExportProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
 
     const selectedValue = selectedProductoId ? String(selectedProductoId) : "all";
 
@@ -46,7 +50,9 @@ export function ProductoFilterExport({
         params.delete("page");
 
         const query = params.toString();
-        router.push(query ? `${pageBasePath}?${query}` : pageBasePath);
+        startTransition(() => {
+            router.push(query ? `${pageBasePath}?${query}` : pageBasePath);
+        });
     };
 
     const buildExportUrl = (format: "xlsx" | "pdf") => {
@@ -64,35 +70,46 @@ export function ProductoFilterExport({
     };
 
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <Select value={selectedValue} onValueChange={handleProductoChange}>
-                <SelectTrigger className="w-full sm:w-72">
-                    <SelectValue placeholder="Filtrar por producto" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Todos los productos</SelectItem>
-                    {productos.map((producto) => (
-                        <SelectItem key={producto.id_producto} value={String(producto.id_producto)}>
-                            {producto.nombre}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-3">
+            <div className="flex min-h-5 items-center justify-end text-sm text-muted-foreground">
+                {isPending ? (
+                    <span className="flex items-center gap-2">
+                        <LoadingSpinner className="h-4 w-4" />
+                        Actualizando vista...
+                    </span>
+                ) : null}
+            </div>
 
-            <div className="flex gap-2">
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <a href={buildExportUrl("xlsx")}>
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        Exportar Excel
-                    </a>
-                </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <Select value={selectedValue} onValueChange={handleProductoChange} disabled={isPending}>
+                    <SelectTrigger className="w-full sm:w-72">
+                        <SelectValue placeholder="Filtrar por producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los productos</SelectItem>
+                        {productos.map((producto) => (
+                            <SelectItem key={producto.id_producto} value={String(producto.id_producto)}>
+                                {producto.nombre}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <a href={buildExportUrl("pdf")}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Exportar PDF
-                    </a>
-                </Button>
+                <div className="flex gap-2">
+                    <Button asChild variant="outline" className="w-full sm:w-auto">
+                        <a href={buildExportUrl("xlsx")}>
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            Exportar Excel
+                        </a>
+                    </Button>
+
+                    <Button asChild variant="outline" className="w-full sm:w-auto">
+                        <a href={buildExportUrl("pdf")}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Exportar PDF
+                        </a>
+                    </Button>
+                </div>
             </div>
         </div>
     );

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { importHistoricosCreditosAction } from "@/lib/actions/import-historicos-creditos";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
 
 type ImportHistoricosResult =
@@ -79,6 +80,7 @@ export function ImportHistoricosForm() {
       />
 
       <Button type="submit" disabled={isImporting} className="w-full">
+        {isImporting ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
         {isImporting ? "Importando..." : "Importar desde Excel"}
       </Button>
     </form>

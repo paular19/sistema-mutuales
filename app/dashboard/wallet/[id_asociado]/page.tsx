@@ -1,6 +1,7 @@
 import { getAsociadoWallet } from "@/lib/queries/wallet";
 import { ingresarSaldo } from "@/lib/actions/wallet";
 import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 
@@ -36,18 +37,21 @@ export default async function WalletPage(props: {
       <form action={ingresarSaldo} className="space-y-4">
         <input type="hidden" name="id_asociado" value={id_asociado} />
 
-        <Input 
-          type="number" 
-          step="0.01" 
-          min="0" 
-          name="monto" 
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          name="monto"
           placeholder="Monto a ingresar"
-          required 
+          required
         />
 
-        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">
+        <FormSubmitButton
+          className="w-full bg-emerald-600 hover:bg-emerald-700"
+          pendingText="Ingresando saldo..."
+        >
           Ingresar saldo
-        </Button>
+        </FormSubmitButton>
       </form>
 
       {data.cuotasPendientes.length > 0 && (

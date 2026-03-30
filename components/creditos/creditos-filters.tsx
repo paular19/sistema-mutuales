@@ -4,14 +4,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Search, X } from 'lucide-react';
 import { useDebounce } from 'use-debounce';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 export function CreditosFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   // Filtros
   const [nombre, setNombre] = useState(searchParams.get('nombre') || '');
@@ -34,15 +36,19 @@ export function CreditosFilters() {
     const newUrl = `/dashboard/creditos${query ? `?${query}` : ''}`;
 
     if (newUrl !== window.location.pathname + window.location.search) {
-      router.push(newUrl);
+      startTransition(() => {
+        router.push(newUrl);
+      });
     }
-  }, [debouncedNombre, debouncedEstado, debouncedProducto, router]);
+  }, [debouncedNombre, debouncedEstado, debouncedProducto, router, startTransition]);
 
   const clearFilters = () => {
     setNombre('');
     setEstado('');
     setProducto('');
-    router.push('/dashboard/creditos');
+    startTransition(() => {
+      router.push('/dashboard/creditos');
+    });
   };
 
   const hasFilters = nombre || estado || producto;
@@ -50,48 +56,60 @@ export function CreditosFilters() {
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* 🔍 Buscar por nombre */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar por nombre del asociado..."
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              className="pl-10"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex min-h-5 items-center justify-end text-sm text-muted-foreground">
+            {isPending ? (
+              <span className="flex items-center gap-2">
+                <LoadingSpinner className="h-4 w-4" />
+                Actualizando resultados...
+              </span>
+            ) : null}
           </div>
 
-          {/* ⚙️ Filtro por estado */}
-          <Select value={estado} onValueChange={setEstado}>
-            <SelectTrigger className="sm:w-48">
-              <SelectValue placeholder="Filtrar por estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="activo">Activo</SelectItem>
-              <SelectItem value="cancelado">Cancelado</SelectItem>
-              <SelectItem value="vencido">Vencido</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* 🔍 Buscar por nombre */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar por nombre del asociado..."
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                className="pl-10"
+              />
+            </div>
 
-          {/* 🧾 Filtro por producto */}
-          <Input
-            placeholder="Filtrar por producto"
-            value={producto}
-            onChange={(e) => setProducto(e.target.value)}
-            className="sm:w-48"
-          />
+            {/* ⚙️ Filtro por estado */}
+            <Select value={estado} onValueChange={setEstado}>
+              <SelectTrigger className="sm:w-48">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="activo">Activo</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
+                <SelectItem value="vencido">Vencido</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {hasFilters && (
-            <Button
-              variant="outline"
-              onClick={clearFilters}
-              className="sm:w-auto"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Limpiar
-            </Button>
-          )}
+            {/* 🧾 Filtro por producto */}
+            <Input
+              placeholder="Filtrar por producto"
+              value={producto}
+              onChange={(e) => setProducto(e.target.value)}
+              className="sm:w-48"
+            />
+
+            {hasFilters && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                disabled={isPending}
+                className="sm:w-auto"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Limpiar
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

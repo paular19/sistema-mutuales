@@ -1,4 +1,5 @@
 // app/onboarding/page.tsx
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { createMutualAction } from "@/lib/actions/onboarding";
 
 export default function OnboardingPage() {
@@ -48,12 +49,12 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center rounded-md bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700"
+            <FormSubmitButton
+              className="group relative flex w-full justify-center bg-indigo-600 text-white hover:bg-indigo-700"
+              pendingText="Creando mutual..."
             >
               Crear Mutual
-            </button>
+            </FormSubmitButton>
           </div>
         </form>
       </div>

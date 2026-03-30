@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -164,6 +165,7 @@ export function ProductoForm({ initialData, action }: ProductoFormProps) {
 
       {/* Botón de acción */}
       <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
         {pending
           ? isEdit
             ? "Actualizando..."

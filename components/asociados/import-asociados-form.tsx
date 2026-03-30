@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { importAsociadosAction } from "@/lib/actions/asociados";
 
 export function ImportAsociadosForm() {

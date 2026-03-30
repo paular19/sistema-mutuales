@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface ImportCreditosFormProps {
   action: (formData: FormData) => Promise<any>; // ← tipado válido
@@ -68,6 +69,7 @@ export function ImportCreditosForm({ action }: ImportCreditosFormProps) {
       </span>
 
       <Button type="submit" size="sm" disabled={pending}>
+        {pending ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
         {pending ? "Importando..." : "Importar Créditos"}
       </Button>
     </form>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface InformeCardProps {
   informe: {
@@ -102,6 +103,7 @@ export function InformeCard({ informe }: InformeCardProps) {
         )}
 
         <Button type="button" onClick={handleClick} disabled={isLoading} className="w-full">
+          {isLoading ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
           {isLoading
             ? "Generando..."
             : informe.action === "download"

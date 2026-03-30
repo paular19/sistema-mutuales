@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createTipoAsociado, updateTipoAsociado, deleteTipoAsociado } from "@/lib/actions/tiposAsociado";
 import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Edit } from "lucide-react";
@@ -87,13 +88,14 @@ export default function TiposAsociadoFormClient({ initialTipos }: TiposAsociadoF
           />
         </div>
         <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
           {isSubmitting
             ? editingTipo
               ? "Actualizando..."
               : "Creando..."
             : editingTipo
-            ? "Actualizar"
-            : "Agregar"}
+              ? "Actualizar"
+              : "Agregar"}
         </Button>
       </form>
 
