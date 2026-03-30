@@ -1,9 +1,9 @@
 import { getAsociadoWallet } from "@/lib/queries/wallet";
 import { ingresarSaldo } from "@/lib/actions/wallet";
-import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { NavigationButton } from "@/components/ui/navigation-button";
 
 export default async function WalletPage(props: {
   params: Promise<{ id_asociado: string }>;
@@ -22,9 +22,13 @@ export default async function WalletPage(props: {
   return (
     <div className="space-y-6 max-w-xl mx-auto py-8">
 
-      <Link href={`/dashboard/creditos/${data.credito?.id_credito}/cuotas`}>
-        <Button variant="ghost">← Volver al crédito</Button>
-      </Link>
+      <NavigationButton
+        href={`/dashboard/creditos/${data.credito?.id_credito}/cuotas`}
+        variant="ghost"
+        pendingText="Abriendo..."
+      >
+        ← Volver al crédito
+      </NavigationButton>
 
       <h1 className="text-3xl font-bold">Wallet de {data.asociado.apellido} {data.asociado.nombre}</h1>
 

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { NavigationButton } from "@/components/ui/navigation-button";
 
 export default function NuevoPagoPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // 🔥 SE CORRIGE ACA: Ahora usamos useSearchParams()
@@ -66,12 +66,13 @@ export default function NuevoPagoPage() {
             Recibo generado y descargado correctamente.
           </p>
 
-          <Button
+          <NavigationButton
+            href="/dashboard/creditos"
             className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => router.push("/dashboard/creditos")}
+            pendingText="Abriendo..."
           >
             Volver a creditos
-          </Button>
+          </NavigationButton>
         </div>
       ) : (
         <form

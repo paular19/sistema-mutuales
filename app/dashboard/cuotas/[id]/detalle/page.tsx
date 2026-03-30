@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 
 export default async function DetalleCuotaPage(props: {
   params: Promise<{ id: string }>;
@@ -31,9 +31,13 @@ export default async function DetalleCuotaPage(props: {
         <h1 className="text-2xl font-bold">
           Detalle de Cuota #{cuota.numero_cuota}
         </h1>
-        <Link href={`/dashboard/creditos/${credito.id_credito}`}>
-          <Button variant="outline">Volver al crédito</Button>
-        </Link>
+        <NavigationButton
+          href={`/dashboard/creditos/${credito.id_credito}`}
+          variant="outline"
+          pendingText="Abriendo..."
+        >
+          Volver al crédito
+        </NavigationButton>
       </div>
 
       <Card>
@@ -175,9 +179,13 @@ export default async function DetalleCuotaPage(props: {
       <Separator />
 
       <div className="flex justify-end">
-        <Link href={`/dashboard/creditos/${credito.id_credito}`}>
-          <Button variant="outline">Volver</Button>
-        </Link>
+        <NavigationButton
+          href={`/dashboard/creditos/${credito.id_credito}`}
+          variant="outline"
+          pendingText="Abriendo..."
+        >
+          Volver
+        </NavigationButton>
       </div>
     </div>
   );

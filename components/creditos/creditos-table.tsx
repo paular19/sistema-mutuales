@@ -26,6 +26,7 @@ import { formatCurrency } from "@/lib/utils/format";
 import { CreditosFilters } from "./creditos-filters";
 import { Pagination } from "@/components/ui/pagination";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { FileText, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -159,11 +160,15 @@ export function CreditosTable({
 
                 <TableCell>
                   <div className="flex justify-center gap-2">
-                    <Button asChild variant="secondary" size="sm" className="flex items-center gap-1">
-                      <Link href={`/dashboard/creditos/${c.id_credito}/cuotas`}>
-                        <span>Ver cuotas</span>
-                      </Link>
-                    </Button>
+                    <NavigationButton
+                      href={`/dashboard/creditos/${c.id_credito}/cuotas`}
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      pendingText="Abriendo..."
+                    >
+                      Ver cuotas
+                    </NavigationButton>
 
                     <Button
                       variant="outline"

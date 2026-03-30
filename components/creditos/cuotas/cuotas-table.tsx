@@ -15,6 +15,7 @@ import {
 import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { CuotasFilters } from "./cuotas-filters";
 import { usePagoSelection } from "@/hooks/usePagoSelection";
+import { NavigationButton } from "@/components/ui/navigation-button";
 
 interface Cuota {
   id_cuota: number;
@@ -69,15 +70,13 @@ export function CuotasTable({ cuotas, comisionGestion = 0 }: CuotasTableProps) {
       {/* 🔹 Botón de acción masiva */}
       {selectedIds.length > 0 && (
         <div className="flex justify-end">
-          <Button
+          <NavigationButton
+            href={`/dashboard/pagos/nuevo?cuotas=${selectedIds.join(",")}`}
             size="sm"
-            onClick={() => {
-              const ids = selectedIds.join(",");
-              window.location.href = `/dashboard/pagos/nuevo?cuotas=${ids}`;
-            }}
+            pendingText="Abriendo..."
           >
             Generar recibos de pago ({selectedIds.length})
-          </Button>
+          </NavigationButton>
         </div>
       )}
 
@@ -152,11 +151,14 @@ export function CuotasTable({ cuotas, comisionGestion = 0 }: CuotasTableProps) {
                 </TableCell>
 
                 <TableCell className="text-right">
-                  <Link href={`/dashboard/cuotas/${c.id_cuota}/detalle`}>
-                    <Button size="sm" variant="outline">
-                      Detalle de cuota
-                    </Button>
-                  </Link>
+                  <NavigationButton
+                    href={`/dashboard/cuotas/${c.id_cuota}/detalle`}
+                    size="sm"
+                    variant="outline"
+                    pendingText="Abriendo..."
+                  >
+                    Detalle de cuota
+                  </NavigationButton>
                 </TableCell>
               </TableRow>
             ))}

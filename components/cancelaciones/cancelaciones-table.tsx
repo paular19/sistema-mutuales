@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { EstadoCuota } from "@prisma/client";
 
@@ -153,11 +153,14 @@ export function CancelacionesTable({
               </TableCell>
 
               <TableCell className="text-right">
-                <Link href={`/dashboard/cuotas/${f.id_cuota}/detalle`}>
-                  <Button size="sm" variant="outline">
-                    Ver detalle
-                  </Button>
-                </Link>
+                <NavigationButton
+                  href={`/dashboard/cuotas/${f.id_cuota}/detalle`}
+                  size="sm"
+                  variant="outline"
+                  pendingText="Abriendo..."
+                >
+                  Ver detalle
+                </NavigationButton>
               </TableCell>
             </TableRow>
           ))}

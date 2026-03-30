@@ -14,6 +14,7 @@ import {
 import { Pagination } from "@/components/ui/pagination";
 import { Edit } from "lucide-react";
 import { DeleteButton } from "@/components/ui/delete-button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { deleteAsociado } from "@/lib/actions/asociados";
 import { formatDate } from "@/lib/utils/format";
 
@@ -52,9 +53,9 @@ export async function AsociadosTable({ searchParams }: AsociadosTableProps) {
               ? "No hay asociados que coincidan con su búsqueda."
               : "Aún no hay asociados registrados. Comience agregando el primer asociado."}
           </p>
-          <Button asChild className="mt-4">
-            <Link href="/dashboard/asociados/new">Agregar Asociado</Link>
-          </Button>
+          <NavigationButton href="/dashboard/asociados/new" className="mt-4" pendingText="Abriendo...">
+            Agregar Asociado
+          </NavigationButton>
         </CardContent>
       </Card>
     );
@@ -199,11 +200,14 @@ export async function AsociadosTable({ searchParams }: AsociadosTableProps) {
                             action={deleteAsociado}
                             confirmMessage="Esta eliminando un asociado y este cambio es permanente."
                           />
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/dashboard/asociados/${a.id_asociado}/edit`}>
-                              <Edit className="h-4 w-4" />
-                            </Link>
-                          </Button>
+                          <NavigationButton
+                            href={`/dashboard/asociados/${a.id_asociado}/edit`}
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Editar asociado"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </NavigationButton>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -253,11 +257,14 @@ export async function AsociadosTable({ searchParams }: AsociadosTableProps) {
                     action={deleteAsociado}
                     confirmMessage="Esta eliminando un asociado y este cambio es permanente."
                   />
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/dashboard/asociados/${a.id_asociado}/edit`}>
-                      <Edit className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  <NavigationButton
+                    href={`/dashboard/asociados/${a.id_asociado}/edit`}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Editar asociado"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </NavigationButton>
                 </div>
               </div>
             </CardHeader>

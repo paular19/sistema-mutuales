@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import {
   Table,
   TableBody,
@@ -35,9 +35,13 @@ export default async function CuotaDetallePage(props: {
           </p>
         </div>
 
-        <Link href={`/dashboard/creditos/${cuota.id_credito}/cuotas`}>
-          <Button variant="ghost">← Volver a cuotas</Button>
-        </Link>
+        <NavigationButton
+          href={`/dashboard/creditos/${cuota.id_credito}/cuotas`}
+          variant="ghost"
+          pendingText="Abriendo..."
+        >
+          ← Volver a cuotas
+        </NavigationButton>
       </div>
 
       {/* Resumen */}

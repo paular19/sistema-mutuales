@@ -2,11 +2,11 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AsociadosTable } from "@/components/asociados/asociados-table";
 import { AsociadosFilters } from "@/components/asociados/asociados-filters";
 import { ExportAsociadosButton } from "@/components/asociados/export-asociados-button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 
 interface SearchParams {
   search?: string;
@@ -36,23 +36,21 @@ export default async function AsociadosPage(props: {
 
         <div className="flex gap-2">
           <ExportAsociadosButton />
-          <Button asChild variant="outline">
-            <Link href="/dashboard/asociados/actualizar-masivo">
-              Actualización masiva
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard/asociados/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Asociado
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/dashboard/tipos-asociados/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Tipo de Asociado
-            </Link>
-          </Button>
+          <NavigationButton
+            href="/dashboard/asociados/actualizar-masivo"
+            variant="outline"
+            pendingText="Abriendo..."
+          >
+            Actualización masiva
+          </NavigationButton>
+          <NavigationButton href="/dashboard/asociados/new" pendingText="Abriendo...">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Asociado
+          </NavigationButton>
+          <NavigationButton href="/dashboard/tipos-asociados/new" pendingText="Abriendo...">
+            <Plus className="mr-2 h-4 w-4" />
+            Tipo de Asociado
+          </NavigationButton>
         </div>
       </div>
 

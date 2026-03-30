@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getHistorialCancelaciones } from "@/lib/queries/cancelacion";
 import { formatDateUtc } from "@/lib/utils/format";
-import { Button } from "@/components/ui/button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import {
     Table,
     TableBody,
@@ -24,9 +24,9 @@ export default async function HistoricoCancelacionesPage() {
                     </p>
                 </div>
 
-                <Link href="/dashboard/cancelaciones">
-                    <Button variant="outline">Volver a cancelaciones</Button>
-                </Link>
+                <NavigationButton href="/dashboard/cancelaciones" variant="outline" pendingText="Abriendo...">
+                    Volver a cancelaciones
+                </NavigationButton>
             </div>
 
             <div className="rounded-md border overflow-auto">

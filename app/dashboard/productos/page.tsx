@@ -1,9 +1,9 @@
 // app/dashboard/productos/page.tsx
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import ProductosFilters from "@/components/productos/productos-filters";
 import { ProductosTable } from "@/components/productos/productos-table";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { getProductos } from "@/lib/queries/productos";
 
 export default async function ProductosPage(props: {
@@ -26,9 +26,9 @@ export default async function ProductosPage(props: {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Productos</h1>
-        <Button asChild>
-          <Link href="/dashboard/productos/new">Nuevo Producto</Link>
-        </Button>
+        <NavigationButton href="/dashboard/productos/new" pendingText="Abriendo...">
+          Nuevo Producto
+        </NavigationButton>
       </div>
 
       <ProductosFilters search={search} />

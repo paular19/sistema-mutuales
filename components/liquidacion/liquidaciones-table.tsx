@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -10,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { formatCurrency, formatDateUtc } from "@/lib/utils/format";
 import { EstadoCuota } from "@prisma/client";
 import type { LiquidacionCuotaUI } from "./liquidaciones-page-client";
@@ -89,11 +88,14 @@ export function LiquidacionesTable({ filas }: LiquidacionesTableProps) {
                 </TableCell>
 
                 <TableCell className="text-right">
-                  <Link href={`/dashboard/cuotas/${f.id_cuota}/detalle`}>
-                    <Button size="sm" variant="outline">
-                      Ver detalle
-                    </Button>
-                  </Link>
+                  <NavigationButton
+                    href={`/dashboard/cuotas/${f.id_cuota}/detalle`}
+                    size="sm"
+                    variant="outline"
+                    pendingText="Abriendo..."
+                  >
+                    Ver detalle
+                  </NavigationButton>
                 </TableCell>
               </TableRow>
             );

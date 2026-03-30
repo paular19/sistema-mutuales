@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { CuotasTable } from "@/components/creditos/cuotas/cuotas-table";
 import { Pagination } from "@/components/ui/pagination";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { formatCurrency } from "@/lib/utils/format";
 import { getCuotasByCreditoId } from "@/lib/queries/cuotas";
 
@@ -44,16 +44,19 @@ export default async function CuotasDeCreditoPage(props: {
         <div className="flex flex-col items-end gap-2">
 
           {/* ← Volver a créditos */}
-          <Link href="/dashboard/creditos">
-            <Button variant="ghost">← Volver a créditos</Button>
-          </Link>
+          <NavigationButton href="/dashboard/creditos" variant="ghost" pendingText="Abriendo...">
+            ← Volver a créditos
+          </NavigationButton>
 
           {/* 💰 Wallet del asociado */}
-          <Link href={`/dashboard/wallet/${credito.asociado?.id_asociado}`}>
-            <Button variant="default" className="bg-emerald-600 hover:bg-emerald-700">
-              💰 Wallet del asociado
-            </Button>
-          </Link>
+          <NavigationButton
+            href={`/dashboard/wallet/${credito.asociado?.id_asociado}`}
+            variant="default"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            pendingText="Abriendo..."
+          >
+            💰 Wallet del asociado
+          </NavigationButton>
 
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -23,6 +24,8 @@ function getCurrentMonthValue() {
 export function InformeCard({ informe }: InformeCardProps) {
   const [periodoMes, setPeriodoMes] = useState<string>(getCurrentMonthValue());
   const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, startTransition] = useTransition();
+  const router = useRouter();
 
   const needsPeriod = Boolean(informe.requiresPeriod);
 
@@ -75,7 +78,9 @@ export function InformeCard({ informe }: InformeCardProps) {
         setIsLoading(false);
       }
     } else {
-      window.location.href = `/dashboard/informes/${informe.id}`;
+      startTransition(() => {
+        router.push(`/dashboard/informes/${informe.id}`);
+      });
     }
   };
 
@@ -102,13 +107,15 @@ export function InformeCard({ informe }: InformeCardProps) {
           </div>
         )}
 
-        <Button type="button" onClick={handleClick} disabled={isLoading} className="w-full">
-          {isLoading ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
+        <Button type="button" onClick={handleClick} disabled={isLoading || isNavigating} className="w-full">
+          {isLoading || isNavigating ? <LoadingSpinner className="mr-2 h-4 w-4" /> : null}
           {isLoading
             ? "Generando..."
-            : informe.action === "download"
-              ? "Descargar"
-              : "Abrir"}
+            : isNavigating
+              ? "Abriendo..."
+              : informe.action === "download"
+                ? "Descargar"
+                : "Abrir"}
         </Button>
       </CardContent>
     </Card>

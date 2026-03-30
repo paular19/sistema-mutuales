@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { CreditosTable } from "@/components/creditos/creditos-table";
+import { NavigationButton } from "@/components/ui/navigation-button";
 import { getCreditos } from "@/lib/queries/creditos";
 import { anularCredito } from "@/lib/actions/creditos";
 
@@ -36,9 +36,9 @@ export default async function CreditosPage(props: {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Créditos</h1>
 
-        <Button asChild>
-          <Link href="/dashboard/creditos/new">Nuevo Crédito</Link>
-        </Button>
+        <NavigationButton href="/dashboard/creditos/new" pendingText="Abriendo...">
+          Nuevo Crédito
+        </NavigationButton>
       </div>
 
       <CreditosTable
