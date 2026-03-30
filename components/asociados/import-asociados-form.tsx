@@ -36,9 +36,9 @@ export function ImportAsociadosForm() {
       <span className="text-sm text-gray-500 italic truncate max-w-[140px]">
         {fileName}
       </span>
-      <Button type="submit" size="sm">
+      <FormSubmitButton type="submit" size="sm" pendingText="Importando...">
         Importar Excel
-      </Button>
+      </FormSubmitButton>
     </form>
   );
 }
