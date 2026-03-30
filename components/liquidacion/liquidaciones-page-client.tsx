@@ -10,6 +10,7 @@ export interface LiquidacionCuotaUI {
   producto: string;
   numero_credito: number;
   numero_cuota: number;
+  numero_cuotas: number;
   fecha_vencimiento: Date;
   monto_total: number;
   estado: EstadoCuota;

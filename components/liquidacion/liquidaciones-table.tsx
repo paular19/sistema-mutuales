@@ -63,7 +63,7 @@ export function LiquidacionesTable({ filas }: LiquidacionesTableProps) {
                 <TableCell>{f.asociado}</TableCell>
                 <TableCell>{f.producto}</TableCell>
                 <TableCell>{f.numero_credito}</TableCell>
-                <TableCell>{f.numero_cuota}</TableCell>
+                <TableCell>{`${f.numero_cuota} de ${f.numero_cuotas}`}</TableCell>
                 <TableCell>{formatDateUtc(fechaVenc)}</TableCell>
                 <TableCell className="text-right">
                   {formatCurrency(f.monto_total)}

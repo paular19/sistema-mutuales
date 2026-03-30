@@ -14,6 +14,7 @@ export interface PreLiquidacionCuota {
   numero_ayuda: number;
   numero_credito: number;
   numero_cuota: number;
+  numero_cuotas: number;
   fecha_vencimiento: Date;
   monto_total: number;
   estado: EstadoCuota;
@@ -94,6 +95,7 @@ export async function getPreLiquidacion(filters: PreLiquidacionFilters = {}) {
       numero_ayuda: c.credito.id_credito,
       numero_credito: c.credito.id_credito,
       numero_cuota: c.numero_cuota,
+      numero_cuotas: c.credito.numero_cuotas,
       fecha_vencimiento: c.fecha_vencimiento,
       monto_total: c.monto_total,
       estado: c.estado,
