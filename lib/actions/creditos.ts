@@ -8,6 +8,10 @@ import { EstadoCredito, EstadoCuota, VencimientoRegla } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 /* ───────── Helpers de fechas / cálculos ───────── */
+function inicioDelDia(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
 function ultimoDiaDelMes(d: Date) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 }
@@ -15,16 +19,24 @@ function ultimoDiaDelMes(d: Date) {
 function ajustarAlMes(base: Date, dia: number, regla: VencimientoRegla) {
   const last = ultimoDiaDelMes(base);
   const target = regla === "AJUSTAR_ULTIMO_DIA" && dia > last ? last : dia;
-  return new Date(base.getFullYear(), base.getMonth(), target);
+  return new Date(base.getFullYear(), base.getMonth(), target, 0, 0, 0, 0);
 }
 
-function primeraFechaVencimiento(hoy: Date, dia: number, regla: VencimientoRegla) {
-  // Regla: Si la fecha de emisión es después del día 15, el primer vencimiento
-  // debe ser 2 meses después. Si es antes del 15, es 1 mes después.
-  const diaEmision = hoy.getDate();
-  const mesesASumar = diaEmision > 15 ? 2 : 1;
-  const mesVencimiento = addMonths(hoy, mesesASumar);
-  return ajustarAlMes(mesVencimiento, dia, regla);
+function primeraFechaVencimiento(fechaBase: Date, dia: number, regla: VencimientoRegla) {
+  const hoy = inicioDelDia(fechaBase);
+  const candidato = ajustarAlMes(hoy, dia, regla);
+  if (hoy.getTime() <= candidato.getTime()) return candidato;
+  return ajustarAlMes(addMonths(hoy, 1), dia, regla);
+}
+
+async function obtenerFechaActualDB(tx: any): Promise<Date> {
+  // Usa la fecha de DB para evitar desfasajes entre reloj de app y Postgres.
+  const rows = await tx.$queryRaw<{ hoy: Date }[]>`
+    SELECT CURRENT_DATE::timestamp AS hoy
+  `;
+
+  const hoy = rows?.[0]?.hoy;
+  return hoy ? inicioDelDia(new Date(hoy)) : inicioDelDia(new Date());
 }
 
 function parseNumberField(value: FormDataEntryValue | null) {
@@ -114,9 +126,11 @@ export async function createCredito(formData: FormData) {
       const tasaInteresOverride = parseNumberField(formData.get("tasa_interes"));
       const primeraVencOverride = parseLocalDateField(formData.get("primera_venc"));
 
-      /* 🔹 Cantidad de cuotas */
-      const rawNumeroCuotas = formData.get("numero_cuotas");
-      let numeroCuotas = rawNumeroCuotas ? Number(rawNumeroCuotas) : 1;
+  const fechaBase = await obtenerFechaActualDB(tx);
+
+  /* 🔹 Cantidad de cuotas */
+  const rawNumeroCuotas = formData.get("numero_cuotas");
+  let numeroCuotas = rawNumeroCuotas ? Number(rawNumeroCuotas) : 1;
 
       if (!Number.isFinite(numeroCuotas) || numeroCuotas <= 0) {
         numeroCuotas = 1;
@@ -132,7 +146,7 @@ export async function createCredito(formData: FormData) {
         const [y, m, d] = String(fechaCreacionStr).split('-').map(Number);
         hoy = new Date(y, m - 1, d);
       } else {
-        hoy = new Date();
+        hoy = fechaBase;
       }
 
       /* ──────────────────────────────────────────────
@@ -420,6 +434,8 @@ export async function importCreditosAction(formData: FormData) {
 
   return withRLS(info.mutualId, info.userId, async (tx, ctx) => {
     try {
+      const fechaBase = await obtenerFechaActualDB(tx);
+
       const file = formData.get("file") as File | null;
       if (!file) return { error: "No se recibió archivo" };
 
@@ -521,7 +537,7 @@ export async function importCreditosAction(formData: FormData) {
            *  CALCULOS FINANCIEROS (IGUAL QUE createCredito)
            --------------------------------------------- */
 
-          const hoy = new Date();
+          const hoy = fechaBase;
 
           const tasaMensualPercent = producto.tasa_interes;
           const tasaMensual = tasaMensualPercent / 100;
@@ -532,7 +548,7 @@ export async function importCreditosAction(formData: FormData) {
           const adjustedMonto = monto * (1 + gestionPct / 100);
 
           const primera_venc = primeraFechaVencimiento(
-            hoy,
+            fechaBase,
             producto.dia_vencimiento,
             producto.regla_vencimiento
           );
