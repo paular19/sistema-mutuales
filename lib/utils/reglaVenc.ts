@@ -19,19 +19,21 @@ function ajustarAlMes(base: Date, dia: number, regla: ReglaVenc): Date {
 
 /**
  * Regla de vencimiento:
- * - Si la fecha de emisión es después del día 15 → primera cuota vence 2 meses después.
- * - Si la fecha de emisión es el día 15 o antes → primera cuota vence 1 mes después.
- * Ambos casos respetan la regla para meses cortos.
+ * - Si hoy es menor o igual al día de vencimiento del mes actual -> vence este mes.
+ * - Si hoy ya pasó ese día -> vence el mismo día del mes siguiente.
+ * Respeta la regla para meses cortos.
  */
 export function primeraFechaVencimiento(
   hoy: Date,
   dia: number,
   regla: ReglaVenc
 ): Date {
-  const diaEmision = hoy.getDate();
-  const mesesASumar = diaEmision > 15 ? 2 : 1;
-  const mesVencimiento = addMonths(hoy, mesesASumar);
-  return ajustarAlMes(mesVencimiento, dia, regla);
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0);
+  const candidato = ajustarAlMes(hoySinHora, dia, regla);
+
+  if (hoySinHora.getTime() <= candidato.getTime()) return candidato;
+
+  return ajustarAlMes(addMonths(hoySinHora, 1), dia, regla);
 }
 
 export function generarVencimientos(

@@ -29,6 +29,19 @@ export function calcularCuotasCredito({
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
+  function ultimoDiaDelMes(d: Date) {
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  }
+
+  function ajustarAlMes(base: Date, dia: number, regla: string): Date {
+    const y = base.getFullYear();
+    const m = base.getMonth();
+    const last = ultimoDiaDelMes(base);
+    const targetDay =
+      regla === "AJUSTAR_ULTIMO_DIA" && dia > last ? last : dia;
+    return new Date(y, m, targetDay, 0, 0, 0, 0);
+  }
+
   function calcularDiasExtraDocumento(fechaBase: Date, fechaComparar: Date) {
     const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate());
     const comparar = new Date(fechaComparar.getFullYear(), fechaComparar.getMonth(), fechaComparar.getDate());
@@ -62,23 +75,17 @@ export function calcularCuotasCredito({
       primeraVencSeleccionada.getDate()
     );
   } else {
-    // Primera fecha de vencimiento: depende del día de emisión
-    // Si emite después del día 15 → vencimiento 2 meses después
-    // Si emite día 15 o antes → vencimiento 1 mes después
-    const diaEmision = hoy.getDate();
-    const mesesASumar = diaEmision > 15 ? 2 : 1;
-    primerVenc = new Date(
-      hoy.getFullYear(),
-      hoy.getMonth() + mesesASumar,
-      diaVencimiento
-    );
+    const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0);
+    const candidato = ajustarAlMes(hoySinHora, diaVencimiento, reglaVencimiento);
 
-    if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
-      const ultimo = new Date(primerVenc.getFullYear(), primerVenc.getMonth() + 1, 0).getDate();
-      if (diaVencimiento > ultimo) {
-        primerVenc.setDate(ultimo);
-      }
-    }
+    primerVenc =
+      hoySinHora.getTime() <= candidato.getTime()
+        ? candidato
+        : ajustarAlMes(
+            new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + 1, 1),
+            diaVencimiento,
+            reglaVencimiento
+          );
   }
 
   // Calcular días entre la fecha de emisión y el primer vencimiento
@@ -170,15 +177,11 @@ export function calcularCuotasCredito({
 
     // Calcular siguiente fecha
     if (i < cuotas) {
-      fechaActual = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, diaVencimiento);
-
-      // Aplicar regla de vencimiento para meses con menos días
-      if (reglaVencimiento === "AJUSTAR_ULTIMO_DIA") {
-        const ultimoDia = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0).getDate();
-        if (diaVencimiento > ultimoDia) {
-          fechaActual.setDate(ultimoDia);
-        }
-      }
+      fechaActual = ajustarAlMes(
+        new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 1),
+        diaVencimiento,
+        reglaVencimiento
+      );
     }
   }
 
