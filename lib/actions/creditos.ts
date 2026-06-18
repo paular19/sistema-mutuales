@@ -22,10 +22,17 @@ function ajustarAlMes(base: Date, dia: number, regla: VencimientoRegla) {
   return new Date(base.getFullYear(), base.getMonth(), target, 0, 0, 0, 0);
 }
 
-function primeraFechaVencimiento(fechaBase: Date, dia: number, regla: VencimientoRegla) {
+function primeraFechaVencimiento(
+  fechaBase: Date,
+  dia: number,
+  regla: VencimientoRegla,
+  usarReglaPostCierreDosMeses = false
+) {
   const hoy = inicioDelDia(fechaBase);
-  // Regla de negocio: la primera cuota siempre vence en el mes siguiente.
-  return ajustarAlMes(addMonths(hoy, 1), dia, regla);
+  // Regla general: la primera cuota vence en el mes siguiente.
+  // Excepción 3 de Abril: si ya pasó el día de cierre, salta dos meses.
+  const mesesASumar = usarReglaPostCierreDosMeses && hoy.getDate() > dia ? 2 : 1;
+  return ajustarAlMes(addMonths(hoy, mesesASumar), dia, regla);
 }
 
 async function obtenerFechaActualDB(tx: any): Promise<Date> {
@@ -120,6 +127,9 @@ export async function createCredito(formData: FormData) {
       const esDocumentoSolaFirma =
         nombreProductoNormalizado.includes("documento") &&
         nombreProductoNormalizado.includes("sola firma");
+      const esProductoTresDeAbril =
+        nombreProductoNormalizado.includes("3 de abril") ||
+        nombreProductoNormalizado.includes("tres de abril");
       const tipo_operacion = esDocumentoSolaFirma ? "documento_sola_firma" : "credito";
 
       const tasaInteresOverride = parseNumberField(formData.get("tasa_interes"));
@@ -199,7 +209,8 @@ export async function createCredito(formData: FormData) {
         : primeraFechaVencimiento(
           hoy,
           diaVencimiento,
-          reglaVencimiento
+          reglaVencimiento,
+          esProductoTresDeAbril
         );
 
       // Días entre fecha de otorgamiento (hoy) y primer vencimiento (ACT/360)
@@ -517,6 +528,11 @@ export async function importCreditosAction(formData: FormData) {
             continue;
           }
 
+          const nombreProductoNormalizado = normalizarTexto(producto.nombre);
+          const esProductoTresDeAbril =
+            nombreProductoNormalizado.includes("3 de abril") ||
+            nombreProductoNormalizado.includes("tres de abril");
+
           /* ---------------------------------------------
            *  CANTIDAD DE CUOTAS
            --------------------------------------------- */
@@ -549,7 +565,8 @@ export async function importCreditosAction(formData: FormData) {
           const primera_venc = primeraFechaVencimiento(
             fechaBase,
             producto.dia_vencimiento,
-            producto.regla_vencimiento
+            producto.regla_vencimiento,
+            esProductoTresDeAbril
           );
 
           // días entre hoy y primer vencimiento

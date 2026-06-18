@@ -66,6 +66,17 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
     return nombreNormalizado.includes("documento") && nombreNormalizado.includes("sola firma");
   }, [productoSeleccionado]);
 
+  const esProductoTresDeAbril = useMemo(() => {
+    if (!productoSeleccionado) return false;
+
+    const nombreNormalizado = productoSeleccionado.nombre
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    return nombreNormalizado.includes("3 de abril") || nombreNormalizado.includes("tres de abril");
+  }, [productoSeleccionado]);
+
   useEffect(() => {
     if (!productoSeleccionado) return;
 
@@ -153,8 +164,9 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
         : new Date(),
       primeraVencSeleccionada: parametrosCredito.primeraVencSeleccionada ?? undefined,
       useFullFirstPeriodProration: esDocumentoSolaFirma,
+      usePostCierreTwoMonthRule: esProductoTresDeAbril && !esDocumentoSolaFirma,
     });
-  }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma]);
+  }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma, esProductoTresDeAbril]);
 
 
   /* ----------------------------------------

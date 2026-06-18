@@ -12,6 +12,7 @@ export interface CalcularCuotasParams {
   fechaOtorgamiento?: Date; // fecha de creación del crédito
   primeraVencSeleccionada?: Date;
   useFullFirstPeriodProration?: boolean;
+  usePostCierreTwoMonthRule?: boolean;
 }
 
 export function calcularCuotasCredito({
@@ -26,6 +27,7 @@ export function calcularCuotasCredito({
   fechaOtorgamiento,
   primeraVencSeleccionada,
   useFullFirstPeriodProration = false,
+  usePostCierreTwoMonthRule = false,
 }: CalcularCuotasParams) {
   if (!monto || !cuotas || !tasaMensual) return null;
 
@@ -76,8 +78,9 @@ export function calcularCuotasCredito({
     );
   } else {
     const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0);
+    const mesesASumar = usePostCierreTwoMonthRule && hoySinHora.getDate() > diaVencimiento ? 2 : 1;
     primerVenc = ajustarAlMes(
-      new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + 1, 1),
+      new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + mesesASumar, 1),
       diaVencimiento,
       reglaVencimiento
     );
