@@ -76,16 +76,11 @@ export function calcularCuotasCredito({
     );
   } else {
     const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0);
-    const candidato = ajustarAlMes(hoySinHora, diaVencimiento, reglaVencimiento);
-
-    primerVenc =
-      hoySinHora.getTime() <= candidato.getTime()
-        ? candidato
-        : ajustarAlMes(
-            new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + 1, 1),
-            diaVencimiento,
-            reglaVencimiento
-          );
+    primerVenc = ajustarAlMes(
+      new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + 1, 1),
+      diaVencimiento,
+      reglaVencimiento
+    );
   }
 
   // Calcular días entre la fecha de emisión y el primer vencimiento

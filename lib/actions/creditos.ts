@@ -24,8 +24,7 @@ function ajustarAlMes(base: Date, dia: number, regla: VencimientoRegla) {
 
 function primeraFechaVencimiento(fechaBase: Date, dia: number, regla: VencimientoRegla) {
   const hoy = inicioDelDia(fechaBase);
-  const candidato = ajustarAlMes(hoy, dia, regla);
-  if (hoy.getTime() <= candidato.getTime()) return candidato;
+  // Regla de negocio: la primera cuota siempre vence en el mes siguiente.
   return ajustarAlMes(addMonths(hoy, 1), dia, regla);
 }
 
