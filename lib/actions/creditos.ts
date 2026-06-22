@@ -30,8 +30,9 @@ function primeraFechaVencimiento(
 ) {
   const hoy = inicioDelDia(fechaBase);
   // Regla general: la primera cuota vence en el mes siguiente.
-  // Excepción 3 de Abril: si ya pasó el día de cierre, salta dos meses.
-  const mesesASumar = usarReglaPostCierreDosMeses && hoy.getDate() > dia ? 2 : 1;
+  // Excepción 3 de Abril/Centro/Clínica San Rafael:
+  // si alcanzó o pasó el día de cierre, salta dos meses.
+  const mesesASumar = usarReglaPostCierreDosMeses && hoy.getDate() >= dia ? 2 : 1;
   return ajustarAlMes(addMonths(hoy, mesesASumar), dia, regla);
 }
 

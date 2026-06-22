@@ -78,7 +78,8 @@ export function calcularCuotasCredito({
     );
   } else {
     const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0, 0);
-    const mesesASumar = usePostCierreTwoMonthRule && hoySinHora.getDate() > diaVencimiento ? 2 : 1;
+    // Si hoy cae en el día de cierre o después, la primera cuota salta 2 meses.
+    const mesesASumar = usePostCierreTwoMonthRule && hoySinHora.getDate() >= diaVencimiento ? 2 : 1;
     primerVenc = ajustarAlMes(
       new Date(hoySinHora.getFullYear(), hoySinHora.getMonth() + mesesASumar, 1),
       diaVencimiento,
