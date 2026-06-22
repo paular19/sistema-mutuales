@@ -66,7 +66,7 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
     return nombreNormalizado.includes("documento") && nombreNormalizado.includes("sola firma");
   }, [productoSeleccionado]);
 
-  const esProductoTresDeAbril = useMemo(() => {
+  const aplicaPostCierreDosMeses = useMemo(() => {
     if (!productoSeleccionado) return false;
 
     const nombreNormalizado = productoSeleccionado.nombre
@@ -74,7 +74,12 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
 
-    return nombreNormalizado.includes("3 de abril") || nombreNormalizado.includes("tres de abril");
+    return (
+      nombreNormalizado.includes("3 de abril") ||
+      nombreNormalizado.includes("tres de abril") ||
+      nombreNormalizado.includes("centro mutual") ||
+      nombreNormalizado.includes("clinica san rafael")
+    );
   }, [productoSeleccionado]);
 
   useEffect(() => {
@@ -164,9 +169,9 @@ export function CreditoForm({ action, asociados, productos }: CreditoFormProps) 
         : new Date(),
       primeraVencSeleccionada: parametrosCredito.primeraVencSeleccionada ?? undefined,
       useFullFirstPeriodProration: esDocumentoSolaFirma,
-      usePostCierreTwoMonthRule: esProductoTresDeAbril && !esDocumentoSolaFirma,
+      usePostCierreTwoMonthRule: aplicaPostCierreDosMeses && !esDocumentoSolaFirma,
     });
-  }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma, esProductoTresDeAbril]);
+  }, [monto, cantidadCuotas, parametrosCredito, fechaCreacion, esDocumentoSolaFirma, aplicaPostCierreDosMeses]);
 
 
   /* ----------------------------------------

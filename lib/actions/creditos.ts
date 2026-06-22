@@ -80,6 +80,15 @@ function normalizarTexto(texto: string) {
     .toLowerCase();
 }
 
+function aplicaReglaPostCierreDosMeses(nombreProductoNormalizado: string) {
+  return (
+    nombreProductoNormalizado.includes("3 de abril") ||
+    nombreProductoNormalizado.includes("tres de abril") ||
+    nombreProductoNormalizado.includes("centro mutual") ||
+    nombreProductoNormalizado.includes("clinica san rafael")
+  );
+}
+
 function calcularDiasExtraDocumento(fechaBase: Date, fechaComparar: Date) {
   const base = new Date(fechaBase.getFullYear(), fechaBase.getMonth(), fechaBase.getDate());
   const comparar = new Date(fechaComparar.getFullYear(), fechaComparar.getMonth(), fechaComparar.getDate());
@@ -127,9 +136,9 @@ export async function createCredito(formData: FormData) {
       const esDocumentoSolaFirma =
         nombreProductoNormalizado.includes("documento") &&
         nombreProductoNormalizado.includes("sola firma");
-      const esProductoTresDeAbril =
-        nombreProductoNormalizado.includes("3 de abril") ||
-        nombreProductoNormalizado.includes("tres de abril");
+      const aplicaPostCierreDosMeses = aplicaReglaPostCierreDosMeses(
+        nombreProductoNormalizado
+      );
       const tipo_operacion = esDocumentoSolaFirma ? "documento_sola_firma" : "credito";
 
       const tasaInteresOverride = parseNumberField(formData.get("tasa_interes"));
@@ -210,7 +219,7 @@ export async function createCredito(formData: FormData) {
           hoy,
           diaVencimiento,
           reglaVencimiento,
-          esProductoTresDeAbril
+          aplicaPostCierreDosMeses
         );
 
       // Días entre fecha de otorgamiento (hoy) y primer vencimiento (ACT/360)
@@ -529,9 +538,9 @@ export async function importCreditosAction(formData: FormData) {
           }
 
           const nombreProductoNormalizado = normalizarTexto(producto.nombre);
-          const esProductoTresDeAbril =
-            nombreProductoNormalizado.includes("3 de abril") ||
-            nombreProductoNormalizado.includes("tres de abril");
+          const aplicaPostCierreDosMeses = aplicaReglaPostCierreDosMeses(
+            nombreProductoNormalizado
+          );
 
           /* ---------------------------------------------
            *  CANTIDAD DE CUOTAS
@@ -566,7 +575,7 @@ export async function importCreditosAction(formData: FormData) {
             fechaBase,
             producto.dia_vencimiento,
             producto.regla_vencimiento,
-            esProductoTresDeAbril
+            aplicaPostCierreDosMeses
           );
 
           // días entre hoy y primer vencimiento
